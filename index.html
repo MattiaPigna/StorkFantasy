@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
-      // Shim per evitare crash su process.env in ambienti browser puri
+      // Shim fondamentale: deve essere eseguito prima di qualsiasi altro script
       window.process = { env: { API_KEY: "" } };
     </script>
     <style>
@@ -23,14 +23,9 @@
             background-color: #fffaf0;
             color: #431407;
             -webkit-tap-highlight-color: transparent;
-            user-select: none;
             margin: 0;
             padding: 0;
             overflow-x: hidden;
-        }
-        main {
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
         }
         .fade-in {
             animation: fadeIn 0.3s ease-out;
@@ -46,21 +41,21 @@
 <script type="importmap">
 {
   "imports": {
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
+    "vite": "https://esm.sh/vite@^7.3.1",
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.95.3",
-    "@google/genai": "https://esm.sh/@google/genai@^1.40.0"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.95.3"
   }
 }
 </script>
 </head>
-<body class="min-h-screen overscroll-none">
+<body class="min-h-screen">
     <div id="root"></div>
-    <!-- Percorso relativo per index.tsx -->
-    <script type="module" src="index.tsx"></script>
+    <!-- Caricamento standard per Vite -->
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>
