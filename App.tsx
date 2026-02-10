@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, ShoppingCart, Shield, LogOut, Key, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Save, AlertTriangle, UserPlus, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Search, RefreshCcw, Loader2, Zap, Edit3, Calculator, Send, Unlock, Lock, Video, Info, Camera, Upload, Award, Coffee, Pizza, Zap as ZapIcon, RotateCcw } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
@@ -544,17 +543,19 @@ const App: React.FC = () => {
                    {marqueeNews.length > 0 && (
                     <div className="relative overflow-hidden bg-orange-950/5 border-y border-orange-950/10 py-2.5 -mx-4 sm:-mx-6">
                         <div className="flex whitespace-nowrap animate-marquee">
-                            <div className="flex gap-8 items-center px-4">
+                            <div className="flex gap-12 items-center px-4">
                                 {marqueeNews.map((news, i) => (
-                                    <span key={i} className="text-[9px] font-black uppercase text-orange-950/60 flex items-center gap-3 italic">
-                                        <ZapIcon size={12} className="text-amber-500" /> {news}
+                                    <span key={i} className="text-[9px] font-black uppercase text-orange-950 flex items-center gap-3 italic">
+                                        <ZapIcon size={12} className="text-amber-500" fill="currentColor" /> {news}
+                                        <span className="mx-4 text-orange-950/20 text-[12px] font-normal">•</span>
                                     </span>
                                 ))}
                             </div>
-                            <div className="flex gap-8 items-center px-4" aria-hidden="true">
+                            <div className="flex gap-12 items-center px-4" aria-hidden="true">
                                 {marqueeNews.map((news, i) => (
-                                    <span key={`dup-${i}`} className="text-[9px] font-black uppercase text-orange-950/60 flex items-center gap-3 italic">
-                                        <ZapIcon size={12} className="text-amber-500" /> {news}
+                                    <span key={`dup-${i}`} className="text-[9px] font-black uppercase text-orange-950 flex items-center gap-3 italic">
+                                        <ZapIcon size={12} className="text-amber-500" fill="currentColor" /> {news}
+                                        <span className="mx-4 text-orange-950/20 text-[12px] font-normal">•</span>
                                     </span>
                                 ))}
                             </div>
@@ -602,7 +603,7 @@ const App: React.FC = () => {
                       <h3 className="text-[9px] font-black uppercase text-slate-400 text-center tracking-widest italic opacity-50">Sponsor Ufficiali</h3>
                       <div className="grid grid-cols-2 gap-3">
                          {sponsors.length > 0 ? sponsors.map(s => (
-                           <SponsorCard key={s.id} icon={<img src={s.logo_url} className="w-full h-full object-contain" />} name={s.name} type={s.type} />
+                           <SponsorCard key={s.id} icon={<img src={s.logo_url} alt={s.name} className="w-full h-full object-contain" />} name={s.name} type={s.type} />
                          )) : (
                            <div className="col-span-2 text-center text-[8px] font-bold text-slate-300 uppercase">Nessuno sponsor caricato...</div>
                          )}
@@ -722,7 +723,7 @@ const App: React.FC = () => {
 
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-orange-950 flex justify-around p-1 pb-10 z-[100] rounded-t-[40px] shadow-2xl border-t border-amber-500/20">
               <NavBtn active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Home size={24}/>} />
-              <NavBtn active={activeTab === 'lineup'} onClick={() => setActiveTab('lineup'} icon={<LayoutPanelLeft size={24}/>} />
+              <NavBtn active={activeTab === 'lineup'} onClick={() => setActiveTab('lineup')} icon={<LayoutPanelLeft size={24}/>} />
               <NavBtn active={activeTab === 'market'} onClick={() => setActiveTab('market')} icon={<ShoppingCart size={24}/>} />
               <NavBtn active={activeTab === 'standings'} onClick={() => setActiveTab('standings')} icon={<BarChart3 size={24}/>} />
               <button onClick={handleLogout} className="p-4 text-red-500/40 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
