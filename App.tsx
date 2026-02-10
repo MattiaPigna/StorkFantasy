@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, ShoppingCart, Shield, LogOut, Key, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Save, AlertTriangle, UserPlus, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Search, RefreshCcw, Loader2, Zap, Edit3, Calculator, Send, Unlock, Lock, Video, Info, Camera, Upload, Award, Coffee, Pizza, Zap as ZapIcon, RotateCcw } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
@@ -238,6 +239,9 @@ const App: React.FC = () => {
   const latestCalculatedMatchday = matchdays.find(m => m.status === 'calculated');
   const ytEmbedUrl = getYouTubeEmbedUrl(settings?.youtubeLiveUrl);
 
+  // Split marquee text by newlines and filter out empty items
+  const marqueeNews = settings?.marqueeText?.split('\n').filter(t => t.trim().length > 0) || [];
+
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8">
       <Loader2 className="animate-spin text-orange-950 mb-4" size={48} />
@@ -474,8 +478,8 @@ const App: React.FC = () => {
                            <input type="text" value={ytInput} onChange={e => setYtInput(e.target.value)} className="w-full p-4 rounded-xl border-2 text-sm font-bold outline-none focus:border-orange-500 transition-all" placeholder="Incolla l'ID video" />
                         </div>
                         <div className="p-4 bg-slate-50 rounded-xl space-y-3">
-                           <label className="text-[10px] font-black uppercase italic text-slate-500">News Bacheca</label>
-                           <textarea value={marqueeInput} onChange={e => setMarqueeInput(e.target.value)} className="w-full p-4 rounded-xl border-2 text-sm font-bold outline-none focus:border-orange-500 transition-all" rows={2} placeholder="Testo scorrevole in home..." />
+                           <label className="text-[10px] font-black uppercase italic text-slate-500">News Bacheca (Una notizia per riga)</label>
+                           <textarea value={marqueeInput} onChange={e => setMarqueeInput(e.target.value)} className="w-full p-4 rounded-xl border-2 text-sm font-bold outline-none focus:border-orange-500 transition-all" rows={4} placeholder="Scrivi qui le news... vai a capo per aggiungerne un'altra." />
                         </div>
                      </div>
                   </div>
@@ -537,18 +541,22 @@ const App: React.FC = () => {
                       </div>
                    </div>
 
-                   {settings?.marqueeText && (
+                   {marqueeNews.length > 0 && (
                     <div className="relative overflow-hidden bg-orange-950/5 border-y border-orange-950/10 py-2.5 -mx-4 sm:-mx-6">
                         <div className="flex whitespace-nowrap animate-marquee">
-                            <div className="flex gap-12 items-center px-4">
-                                <span className="text-[9px] font-black uppercase text-orange-950/60 flex items-center gap-2 italic">
-                                    <Award size={12} className="text-amber-500" /> {settings.marqueeText}
-                                </span>
+                            <div className="flex gap-8 items-center px-4">
+                                {marqueeNews.map((news, i) => (
+                                    <span key={i} className="text-[9px] font-black uppercase text-orange-950/60 flex items-center gap-3 italic">
+                                        <ZapIcon size={12} className="text-amber-500" /> {news}
+                                    </span>
+                                ))}
                             </div>
-                            <div className="flex gap-12 items-center px-4" aria-hidden="true">
-                                <span className="text-[9px] font-black uppercase text-orange-950/60 flex items-center gap-2 italic">
-                                    <Award size={12} className="text-amber-500" /> {settings.marqueeText}
-                                </span>
+                            <div className="flex gap-8 items-center px-4" aria-hidden="true">
+                                {marqueeNews.map((news, i) => (
+                                    <span key={`dup-${i}`} className="text-[9px] font-black uppercase text-orange-950/60 flex items-center gap-3 italic">
+                                        <ZapIcon size={12} className="text-amber-500" /> {news}
+                                    </span>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -714,7 +722,7 @@ const App: React.FC = () => {
 
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-orange-950 flex justify-around p-1 pb-10 z-[100] rounded-t-[40px] shadow-2xl border-t border-amber-500/20">
               <NavBtn active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Home size={24}/>} />
-              <NavBtn active={activeTab === 'lineup'} onClick={() => setActiveTab('lineup')} icon={<LayoutPanelLeft size={24}/>} />
+              <NavBtn active={activeTab === 'lineup'} onClick={() => setActiveTab('lineup'} icon={<LayoutPanelLeft size={24}/>} />
               <NavBtn active={activeTab === 'market'} onClick={() => setActiveTab('market')} icon={<ShoppingCart size={24}/>} />
               <NavBtn active={activeTab === 'standings'} onClick={() => setActiveTab('standings')} icon={<BarChart3 size={24}/>} />
               <button onClick={handleLogout} className="p-4 text-red-500/40 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
@@ -724,7 +732,7 @@ const App: React.FC = () => {
       )}
       <style>{`
         @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .animate-marquee { display: flex; animation: marquee 25s linear infinite; }
+        .animate-marquee { display: flex; animation: marquee 30s linear infinite; }
         .animate-marquee:hover { animation-play-state: paused; }
       `}</style>
     </div>
