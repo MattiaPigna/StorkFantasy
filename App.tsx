@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, ShoppingCart, Shield, LogOut, Key, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Save, AlertTriangle, UserPlus, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Search, RefreshCcw, Loader2, Zap, Edit3, Calculator, Send, Unlock, Lock, Video, Info, Camera, Upload, Award, Coffee, Pizza, Zap as ZapIcon, RotateCcw } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
@@ -72,6 +73,12 @@ const App: React.FC = () => {
       setMatchdays(m || []);
       setSponsors(sp || []);
       
+      // Se l'utente è loggato, aggiorniamo il suo profilo specifico per sincronizzare is_lineup_confirmed
+      if (currentUser) {
+        const profile = await dbService.getProfile(currentUser.id);
+        if (profile) setCurrentUser(profile);
+      }
+
       if (selectedMatchday) {
         const updated = (m || []).find(x => x.id === selectedMatchday.id);
         if (updated) setSelectedMatchday(updated);
@@ -100,12 +107,14 @@ const App: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentUser?.id]); // Aggiunta dipendenza per sicurezza
 
   useEffect(() => {
     const init = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
         if (session?.user) {
           const profile = await dbService.getProfile(session.user.id);
           if (profile) {
@@ -113,23 +122,28 @@ const App: React.FC = () => {
             await refreshData(false);
           } else {
             setCurrentUser(null);
-            setLoading(false);
           }
         } else {
-          setLoading(false);
+          setCurrentUser(null);
         }
       } catch (e) {
-        setLoading(false);
+        console.error("Initialization error", e);
+        setCurrentUser(null);
+      } finally {
+        setLoading(false); // Garantito che venga chiamato
       }
     };
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
+        setLoading(true);
         const profile = await dbService.getProfile(session.user.id);
         if (profile) setCurrentUser(profile);
+        setLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+        setLoading(false);
       }
     });
 
@@ -347,7 +361,7 @@ const App: React.FC = () => {
                                </button>
                                <div className="flex gap-2">
                                   {m.status === 'calculated' && <button onClick={() => { if(confirm("Riaprire la giornata? I voti torneranno modificabili.")) dbService.saveMatchdayVotes(m.id, m.votes, 'open').then(() => refreshData()); }} className="flex-1 py-2 bg-amber-50 text-amber-600 rounded-lg font-bold text-[8px] uppercase">RIAPRI</button>}
-                                  <button onClick={() => { if(confirm("Eliminare giornata? I punti saranno sottratti dalla classifica.")) dbService.deleteMatchday(m.id).then(() => refreshData()); }} className="p-2 bg-red-50 text-red-500 rounded-lg"><Trash2 size={14}/></button>
+                                  <button onClick={() => { if(confirm("Eliminare giornata? I punti saranno stornati e tutti i team dovranno riconfermare la formazione. Continuare?")) dbService.deleteMatchday(m.id).then(() => refreshData()); }} className="p-2 bg-red-50 text-red-500 rounded-lg"><Trash2 size={14}/></button>
                                </div>
                             </div>
                          </div>
