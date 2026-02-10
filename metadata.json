@@ -1,0 +1,20 @@
+{
+  "name": "Copy of StorkFantasy",
+  "short_name": "StorkFantasy",
+  "description": "Elite Futsal Fantasy Management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#431407",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5358/5358643.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
