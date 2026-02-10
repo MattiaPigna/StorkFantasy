@@ -14,7 +14,7 @@ export const dbService = {
       localStorage.clear();
       sessionStorage.clear();
       setTimeout(() => {
-        window.location.href = '/'; 
+        window.location.href = './'; 
       }, 100);
     } catch (e) {
       console.error("SignOut Error:", e);
@@ -102,15 +102,20 @@ export const dbService = {
       is_lineup_confirmed: team.isLineupConfirmed
     };
     const { error } = await supabase.from('profiles').update(updateData as any).eq('id', userId);
-    if (error) throw error;
+    if (error) {
+      console.error("Update Profile Error:", error);
+      throw error;
+    }
   },
 
   async confirmLineup(userId: string, matchdayNumber: number, lineupIds: string[]) {
+    // 1. Aggiorna profilo
     await supabase.from('profiles').update({
       lineup_ids: lineupIds,
       is_lineup_confirmed: true
     } as any).eq('id', userId);
 
+    // 2. Snapshot
     const { error } = await supabase.from('lineup_history').upsert({
       user_id: userId,
       matchday_number: matchdayNumber,
@@ -118,7 +123,10 @@ export const dbService = {
       points_earned: 0
     } as any, { onConflict: 'user_id, matchday_number' });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Confirm Lineup History Error:", error);
+      throw error;
+    }
   },
 
   async getAllProfiles(): Promise<User[]> {
@@ -205,6 +213,7 @@ export const dbService = {
         isLineupLocked: data.is_lineup_locked ?? false,
         marketDeadline: '',
         currentMatchday: data.current_matchday || 1,
+        // Fixed: Use correct camelCase property names defined in AppSettings interface to fix property 'youtube_live_url' and 'marquee_text' errors
         youtubeLiveUrl: data.youtube_live_url || '',
         marqueeText: data.marquee_text || ''
       };
@@ -250,10 +259,15 @@ export const dbService = {
   },
 
   async deleteMatchday(matchdayId: number) {
-    const { data: matchday } = await supabase.from('matchdays').select('*').eq('id', matchdayId).single();
-    if (!matchday) return;
+    console.log("Deleting Matchday ID:", matchdayId);
+    const { data: matchday, error: fetchErr } = await supabase.from('matchdays').select('*').eq('id', matchdayId).single();
+    
+    if (fetchErr || !matchday) {
+      console.error("Matchday not found for deletion:", fetchErr);
+      return;
+    }
 
-    // STORNO PUNTI AGGRESSIVO
+    // STORNO PUNTI
     if (matchday.status === 'calculated') {
       const { data: histories } = await supabase.from('lineup_history').select('*').eq('matchday_number', matchday.number);
       if (histories && histories.length > 0) {
@@ -261,15 +275,21 @@ export const dbService = {
           const { data: pData } = await supabase.from('profiles').select('points').eq('id', h.user_id).single();
           if (pData) {
             const newPoints = Math.max(0, Number(pData.points || 0) - Number(h.points_earned || 0));
-            await supabase.from('profiles').update({ points: newPoints } as any).eq('id', h.user_id);
+            const { error: updErr } = await supabase.from('profiles').update({ points: newPoints } as any).eq('id', h.user_id);
+            if (updErr) console.error("Rollback Points Error:", updErr);
           }
         }
       }
     }
 
-    await supabase.from('lineup_history').delete().eq('matchday_number', matchday.number);
-    const { error } = await supabase.from('matchdays').delete().eq('id', matchdayId);
-    if (error) throw error;
+    const { error: delHistErr } = await supabase.from('lineup_history').delete().eq('matchday_number', matchday.number);
+    if (delHistErr) console.error("History Delete Error:", delHistErr);
+
+    const { error: delMatchErr } = await supabase.from('matchdays').delete().eq('id', matchdayId);
+    if (delMatchErr) {
+      console.error("Matchday Delete DB Error:", delMatchErr);
+      throw delMatchErr;
+    }
   },
 
   async saveMatchdayVotes(matchdayId: number, votes: Record<string, PlayerMatchStats>, status?: 'open' | 'calculated') {
@@ -283,11 +303,11 @@ export const dbService = {
     const { data: matchday, error: mErr } = await supabase.from('matchdays').select('*').eq('id', matchdayId).single();
     if (mErr || !matchday) throw new Error("Giornata non trovata");
 
-    // Prendi le formazioni congelate
-    const { data: histories } = await supabase.from('lineup_history').select('*').eq('matchday_number', matchday.number);
+    const { data: histories, error: histErr } = await supabase.from('lineup_history').select('*').eq('matchday_number', matchday.number);
     
+    if (histErr) throw histErr;
     if (!histories || histories.length === 0) {
-      throw new Error("Nessuna formazione consegnata per questa giornata. Impossibile calcolare.");
+      throw new Error("Nessuna formazione consegnata per la giornata " + matchday.number + ". Chiedi ai manager di schierare e 'Consegnare' la formazione.");
     }
 
     for (const history of histories) {
@@ -306,10 +326,8 @@ export const dbService = {
         matchdayTotal += pPoints;
       });
 
-      // Aggiorna history
       await supabase.from('lineup_history').update({ points_earned: matchdayTotal } as any).eq('id', history.id);
 
-      // Aggiorna profilo
       const { data: prof } = await supabase.from('profiles').select('points').eq('id', history.user_id).single();
       if (prof) {
         await supabase.from('profiles').update({ 
@@ -319,7 +337,8 @@ export const dbService = {
       }
     }
 
-    await supabase.from('matchdays').update({ votes: stats, status: 'calculated' } as any).eq('id', matchdayId);
+    const { error: updMatchErr } = await supabase.from('matchdays').update({ votes: stats, status: 'calculated' } as any).eq('id', matchdayId);
+    if (updMatchErr) throw updMatchErr;
     
     const settings = await this.getSettings();
     await this.updateSettings({ ...settings, currentMatchday: matchday.number + 1 });

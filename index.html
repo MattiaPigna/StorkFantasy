@@ -13,6 +13,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Shim per evitare crash su process.env in ambienti browser puri
+      window.process = { env: { API_KEY: "" } };
+    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -56,6 +60,7 @@
 </head>
 <body class="min-h-screen overscroll-none">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <!-- Percorso relativo per index.tsx -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>
