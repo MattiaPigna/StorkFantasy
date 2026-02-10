@@ -253,7 +253,6 @@ export const dbService = {
     const { data: matchday, error: fetchErr } = await supabase.from('matchdays').select('*').eq('id', matchdayId).single();
     if (fetchErr || !matchday) return;
 
-    // Se la giornata era calcolata, dobbiamo stornare i punti
     if (matchday.status === 'calculated') {
       const { data: histories } = await supabase.from('lineup_history').select('*').eq('matchday_number', matchday.number);
       if (histories) {
@@ -267,8 +266,7 @@ export const dbService = {
       }
     }
 
-    // RESET IMPORTANTE: Quando eliminiamo una giornata, resettiamo lo stato di conferma per tutti i profili
-    // per evitare che rimangano "confermati" per una giornata fantasma o futura non ancora pronta.
+    // RESET: Quando si elimina una giornata, resettiamo lo stato di conferma per tutti i profili
     await supabase.from('profiles').update({ is_lineup_confirmed: false } as any).neq('id', '00000000-0000-0000-0000-000000000000');
 
     await supabase.from('lineup_history').delete().eq('matchday_number', matchday.number);

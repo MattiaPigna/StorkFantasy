@@ -73,7 +73,6 @@ const App: React.FC = () => {
       setMatchdays(m || []);
       setSponsors(sp || []);
       
-      // Se l'utente è loggato, aggiorniamo il suo profilo specifico per sincronizzare is_lineup_confirmed
       if (currentUser) {
         const profile = await dbService.getProfile(currentUser.id);
         if (profile) setCurrentUser(profile);
@@ -107,14 +106,13 @@ const App: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser?.id]); // Aggiunta dipendenza per sicurezza
+  }, [currentUser?.id]);
 
   useEffect(() => {
     const init = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
-
         if (session?.user) {
           const profile = await dbService.getProfile(session.user.id);
           if (profile) {
@@ -130,20 +128,17 @@ const App: React.FC = () => {
         console.error("Initialization error", e);
         setCurrentUser(null);
       } finally {
-        setLoading(false); // Garantito che venga chiamato
+        setLoading(false);
       }
     };
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        setLoading(true);
         const profile = await dbService.getProfile(session.user.id);
         if (profile) setCurrentUser(profile);
-        setLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
-        setLoading(false);
       }
     });
 
@@ -251,8 +246,6 @@ const App: React.FC = () => {
   const currentStarters = currentUser?.team.currentLineupIds.map(id => players.find(p => p.id === id)).filter(Boolean) as Player[] || [];
   const latestCalculatedMatchday = matchdays.find(m => m.status === 'calculated');
   const ytEmbedUrl = getYouTubeEmbedUrl(settings?.youtubeLiveUrl);
-
-  // Split marquee text by newlines and filter out empty items
   const marqueeNews = settings?.marqueeText?.split('\n').filter(t => t.trim().length > 0) || [];
 
   if (loading) return (
@@ -262,8 +255,11 @@ const App: React.FC = () => {
     </div>
   );
 
+  // Determina se mostrare il layout con la sidebar
+  const showDashboard = currentUser && !isAdminPath;
+
   return (
-    <div className="pb-24 lg:pb-0 lg:pl-64 min-h-screen bg-slate-50 relative font-sans">
+    <div className={`min-h-screen bg-slate-50 relative font-sans w-full ${showDashboard ? 'pb-24 lg:pb-0 lg:pl-64' : ''}`}>
       {notification && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[300] bg-emerald-500 text-white px-6 py-2 rounded-full font-bold uppercase text-[10px] shadow-xl flex items-center gap-2">
           <CheckCircle size={14} /> {notification}
@@ -272,7 +268,7 @@ const App: React.FC = () => {
 
       {isAdminPath ? (
         !adminAuthenticated ? (
-          <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
+          <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 w-full">
             <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl">
               <button onClick={() => setIsAdminPath(false)} className="mb-4 flex items-center gap-2 text-slate-400 font-bold uppercase text-[10px]"><ChevronLeft size={14}/> Esci</button>
               <h1 className="text-xl font-black text-slate-900 text-center uppercase mb-6 italic">Area Admin</h1>
@@ -283,8 +279,8 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="min-h-screen bg-slate-100 p-4 sm:p-6">
-             <div className="max-w-4xl mx-auto space-y-6">
+          <div className="min-h-screen bg-slate-100 p-4 sm:p-6 w-full">
+             <div className="max-w-6xl mx-auto space-y-6">
                 <div className="bg-white p-6 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
                    <h1 className="text-xl font-black uppercase italic flex items-center gap-2 text-orange-950"><SettingsIcon size={20}/> Gestione</h1>
                    <div className="flex bg-slate-200 p-1 rounded-xl gap-1 overflow-x-auto">
@@ -346,7 +342,7 @@ const App: React.FC = () => {
                           <PlusCircle size={14}/> NUOVA GARA
                        </button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                        {matchdays.map(m => (
                          <div key={m.id} className="bg-white p-6 rounded-2xl shadow border-l-4 border-orange-950 flex flex-col justify-between">
                             <div className="flex justify-between items-start mb-4">
@@ -448,7 +444,7 @@ const App: React.FC = () => {
                            {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <><Save size={14}/> CARICA</>}
                          </button>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
                          {sponsors.map(s => (
                             <div key={s.id} className="bg-white p-4 rounded-xl shadow relative group border border-slate-100 hover:border-orange-500 transition-all">
                                <div className="h-16 w-full mb-2 flex items-center justify-center bg-slate-50 rounded-lg p-2">
@@ -502,7 +498,7 @@ const App: React.FC = () => {
         )
       ) : (
         !currentUser ? (
-          <div className="min-h-screen bg-[#1a0702] flex items-center justify-center p-4">
+          <div className="min-h-screen bg-[#1a0702] flex items-center justify-center p-4 w-full">
              <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl">
                 <h1 className="text-2xl font-black text-orange-950 text-center uppercase mb-1 italic tracking-tighter">STORKFANTASY</h1>
                 <p className="text-center text-[8px] font-bold text-amber-600 uppercase mb-6 italic tracking-widest">ELITE FUTSAL LEAGUE</p>
@@ -539,7 +535,7 @@ const App: React.FC = () => {
               <div className="p-4"><button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/10 text-red-400 font-bold uppercase text-[9px]"><LogOut size={14}/> Esci</button></div>
             </aside>
 
-            <main className="max-w-xl mx-auto p-4 sm:p-6 mb-24 lg:mb-0">
+            <main className="max-w-6xl mx-auto p-4 sm:p-6 mb-24 lg:mb-0">
               {activeTab === 'home' && (
                 <div className="space-y-6 fade-in">
                    <div className="bg-orange-950 rounded-3xl p-6 text-white shadow-2xl relative overflow-hidden">
@@ -577,49 +573,51 @@ const App: React.FC = () => {
                     </div>
                    )}
 
-                   <div className="space-y-3">
-                     <h3 className="text-xs font-black uppercase flex items-center gap-2 italic text-orange-950"><Video size={16} className="text-red-600 animate-pulse"/> Match Live</h3>
-                     {ytEmbedUrl ? (
-                        <div className="bg-black rounded-3xl overflow-hidden aspect-video border-4 border-orange-950 shadow-2xl">
-                           <iframe className="w-full h-full" src={ytEmbedUrl} frameBorder="0" allow="autoplay; fullscreen" />
-                        </div>
-                     ) : (
-                        <div className="bg-white p-10 rounded-3xl shadow-lg border border-orange-100 text-center opacity-40 italic text-[10px] uppercase font-black tracking-widest">Nessun segnale live attivo</div>
-                     )}
-                   </div>
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                     <div className="space-y-3">
+                       <h3 className="text-xs font-black uppercase flex items-center gap-2 italic text-orange-950"><Video size={16} className="text-red-600 animate-pulse"/> Match Live</h3>
+                       {ytEmbedUrl ? (
+                          <div className="bg-black rounded-3xl overflow-hidden aspect-video border-4 border-orange-950 shadow-2xl">
+                             <iframe className="w-full h-full" src={ytEmbedUrl} frameBorder="0" allow="autoplay; fullscreen" />
+                          </div>
+                       ) : (
+                          <div className="bg-white p-10 rounded-3xl shadow-lg border border-orange-100 text-center opacity-40 italic text-[10px] uppercase font-black tracking-widest">Nessun segnale live attivo</div>
+                       )}
+                     </div>
 
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white p-5 rounded-3xl shadow-lg border border-orange-50">
-                         <h3 className="text-[10px] font-black uppercase mb-3 italic flex items-center gap-2 text-orange-950"><Star className="text-amber-500" size={14} fill="currentColor" /> Top Scores</h3>
-                         <div className="space-y-2">
-                            {currentStarters.length > 0 ? currentStarters.slice(0, 3).map(p => {
-                               const s = latestCalculatedMatchday?.votes[p.id];
-                               return (
-                               <div key={p.id} className="flex justify-between items-center text-[9px] p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                  <span className="font-bold uppercase truncate pr-2">{p.name}</span>
-                                  <span className="font-black text-orange-600">{s ? (Number(s.voto) + (Number(s.goals)*3)).toFixed(1) : '-'}</span>
-                               </div>
-                            )}) : (
-                               <p className="text-[8px] uppercase font-bold text-slate-300 text-center py-2">Rosa da definire</p>
-                            )}
-                         </div>
-                      </div>
-                      <div className="bg-orange-950 p-5 rounded-3xl text-white shadow-xl flex flex-col justify-center items-center text-center">
-                        <ZapIcon className={`mb-2 text-amber-500 ${currentUser.team.isLineupConfirmed ? 'animate-pulse' : 'opacity-20'}`} size={28} />
-                        <h3 className="text-xs font-black uppercase text-amber-500 mb-1 italic">Gara {settings?.currentMatchday || 1}</h3>
-                        <div className={`px-4 py-1.5 rounded-full font-black uppercase text-[7px] border tracking-widest ${currentUser.team.isLineupConfirmed ? 'text-emerald-400 border-emerald-500/30' : 'text-red-400 border-red-500/30 animate-pulse'}`}>
-                           {currentUser.team.isLineupConfirmed ? 'CONFERMATA' : 'DA SCHIERARE'}
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-white p-5 rounded-3xl shadow-lg border border-orange-50">
+                           <h3 className="text-[10px] font-black uppercase mb-3 italic flex items-center gap-2 text-orange-950"><Star className="text-amber-500" size={14} fill="currentColor" /> Top Scores</h3>
+                           <div className="space-y-2">
+                              {currentStarters.length > 0 ? currentStarters.slice(0, 5).map(p => {
+                                 const s = latestCalculatedMatchday?.votes[p.id];
+                                 return (
+                                 <div key={p.id} className="flex justify-between items-center text-[9px] p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                    <span className="font-bold uppercase truncate pr-2">{p.name}</span>
+                                    <span className="font-black text-orange-600">{s ? (Number(s.voto) + (Number(s.goals)*3)).toFixed(1) : '-'}</span>
+                                 </div>
+                              )}) : (
+                                 <p className="text-[8px] uppercase font-bold text-slate-300 text-center py-2">Rosa da definire</p>
+                              )}
+                           </div>
                         </div>
-                      </div>
+                        <div className="bg-orange-950 p-5 rounded-3xl text-white shadow-xl flex flex-col justify-center items-center text-center">
+                          <ZapIcon className={`mb-2 text-amber-500 ${currentUser.team.isLineupConfirmed ? 'animate-pulse' : 'opacity-20'}`} size={28} />
+                          <h3 className="text-xs font-black uppercase text-amber-500 mb-1 italic">Gara {settings?.currentMatchday || 1}</h3>
+                          <div className={`px-4 py-1.5 rounded-full font-black uppercase text-[7px] border tracking-widest ${currentUser.team.isLineupConfirmed ? 'text-emerald-400 border-emerald-500/30' : 'text-red-400 border-red-500/30 animate-pulse'}`}>
+                             {currentUser.team.isLineupConfirmed ? 'CONFERMATA' : 'DA SCHIERARE'}
+                          </div>
+                        </div>
+                     </div>
                    </div>
 
                    <div className="pt-6 space-y-4">
                       <h3 className="text-[9px] font-black uppercase text-slate-400 text-center tracking-widest italic opacity-50">Sponsor Ufficiali</h3>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                          {sponsors.length > 0 ? sponsors.map(s => (
                            <SponsorCard key={s.id} icon={<img src={s.logo_url} alt={s.name} className="w-full h-full object-contain" />} name={s.name} type={s.type} />
                          )) : (
-                           <div className="col-span-2 text-center text-[8px] font-bold text-slate-300 uppercase">Nessuno sponsor caricato...</div>
+                           <div className="col-span-full text-center text-[8px] font-bold text-slate-300 uppercase">Nessuno sponsor caricato...</div>
                          )}
                       </div>
                    </div>
@@ -627,7 +625,7 @@ const App: React.FC = () => {
               )}
 
               {activeTab === 'lineup' && (
-                <div className="space-y-6 fade-in">
+                <div className="space-y-6 fade-in max-w-2xl mx-auto">
                    <div className="flex justify-between items-end">
                       <h2 className="text-2xl font-black uppercase italic tracking-tighter text-orange-950">Il Mio Campo</h2>
                       <button onClick={confirmLineup} disabled={!settings || settings.isLineupLocked || currentUser.team.isLineupConfirmed || actionLoading} className={`px-7 py-2.5 rounded-2xl font-black uppercase text-[10px] shadow-2xl transition-all ${currentUser.team.isLineupConfirmed ? 'bg-emerald-500 text-white' : 'bg-orange-950 text-amber-500 hover:scale-105 active:scale-95'}`}>
@@ -663,7 +661,7 @@ const App: React.FC = () => {
                       <div><h2 className="text-2xl font-black uppercase text-amber-500 italic tracking-tighter">Mercato</h2><p className="text-[10px] font-bold text-orange-300 tracking-widest">Residuo: {currentUser.team.creditsLeft} SK</p></div>
                       <ShoppingCart className="text-amber-500/20" size={40} />
                    </div>
-                   <div className="space-y-3">
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {players.map(p => {
                         const isBought = currentUser.team.playerIds.includes(p.id);
                         return (
@@ -710,7 +708,7 @@ const App: React.FC = () => {
               )}
 
               {activeTab === 'standings' && (
-                <div className="space-y-6 fade-in">
+                <div className="space-y-6 fade-in max-w-4xl mx-auto">
                    <h2 className="text-2xl font-black uppercase italic text-orange-950 tracking-tighter">Classifica</h2>
                    <div className="bg-white rounded-3xl shadow-2xl border border-orange-100 overflow-hidden">
                       {allUsers.length > 0 ? [...allUsers].sort((a, b) => (b.team?.totalPoints || 0) - (a.team?.totalPoints || 0)).map((u, idx) => (
@@ -721,7 +719,7 @@ const App: React.FC = () => {
                                   {u.team.logo ? <img src={u.team.logo} className="w-full h-full object-cover" /> : <Shield size={16} className="m-auto mt-2.5 text-slate-400" />}
                                </div>
                                <div>
-                                  <p className="font-black uppercase text-orange-950 text-[11px] tracking-tight truncate max-w-[140px]">{u.team.teamName}</p>
+                                  <p className="font-black uppercase text-orange-950 text-[11px] tracking-tight truncate max-w-[140px] md:max-w-none">{u.team.teamName}</p>
                                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{u.team.managerName}</p>
                                </div>
                             </div>
