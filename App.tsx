@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, ShoppingCart, Shield, LogOut, Key, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Save, AlertTriangle, UserPlus, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Search, RefreshCcw, Loader2, Zap, Edit3, Calculator, Send, Unlock, Lock, Video, Info, Camera, Upload, Award, Coffee, Pizza, Zap as ZapIcon, RotateCcw } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
@@ -84,7 +83,6 @@ const App: React.FC = () => {
     }
   };
 
-  // REALTIME SUBSCRIPTION
   useEffect(() => {
     const channel = supabase
       .channel('schema-db-changes')
@@ -224,7 +222,7 @@ const App: React.FC = () => {
   };
 
   const updateStat = (pid: string, key: keyof PlayerMatchStats, val: any) => {
-    if (!selectedMatchday) return;
+    if (!selectedMatchday || selectedMatchday.status === 'calculated') return;
     const newVotes = { ...selectedMatchday.votes };
     const current = newVotes[pid] || { voto: 0, goals: 0, assists: 0, ownGoals: 0, yellowCard: false, redCard: false, extraPoints: 0 };
     let finalVal = val;
@@ -341,9 +339,11 @@ const App: React.FC = () => {
                                </span>
                             </div>
                             <div className="space-y-2">
-                               <button onClick={() => setSelectedMatchday(m)} className="w-full py-2 bg-slate-900 text-white rounded-lg font-bold uppercase text-[9px]">VOTI</button>
+                               <button onClick={() => setSelectedMatchday(m)} className="w-full py-2 bg-slate-900 text-white rounded-lg font-bold uppercase text-[9px]">
+                                  {m.status === 'calculated' ? 'VEDI VOTI' : 'INSERISCI VOTI'}
+                               </button>
                                <div className="flex gap-2">
-                                  {m.status === 'calculated' && <button onClick={() => { dbService.saveMatchdayVotes(m.id, m.votes, 'open').then(() => refreshData()); }} className="flex-1 py-2 bg-amber-50 text-amber-600 rounded-lg font-bold text-[8px] uppercase">RIAPRI</button>}
+                                  {m.status === 'calculated' && <button onClick={() => { if(confirm("Riaprire la giornata? I voti torneranno modificabili.")) dbService.saveMatchdayVotes(m.id, m.votes, 'open').then(() => refreshData()); }} className="flex-1 py-2 bg-amber-50 text-amber-600 rounded-lg font-bold text-[8px] uppercase">RIAPRI</button>}
                                   <button onClick={() => { if(confirm("Eliminare giornata? I punti saranno sottratti dalla classifica.")) dbService.deleteMatchday(m.id).then(() => refreshData()); }} className="p-2 bg-red-50 text-red-500 rounded-lg"><Trash2 size={14}/></button>
                                </div>
                             </div>
@@ -357,12 +357,28 @@ const App: React.FC = () => {
                   <div className="bg-white p-4 rounded-2xl shadow space-y-4">
                     <div className="flex justify-between items-center border-b pb-4">
                         <button onClick={() => setSelectedMatchday(null)} className="flex items-center gap-2 text-slate-400 font-bold uppercase text-[9px]"><ChevronLeft size={14}/> Torna</button>
-                        <h3 className="font-black uppercase text-lg italic">Voti G{selectedMatchday.number}</h3>
+                        <div className="text-center">
+                           <h3 className="font-black uppercase text-lg italic">G{selectedMatchday.number}</h3>
+                           <p className={`text-[8px] font-black ${selectedMatchday.status === 'calculated' ? 'text-red-500' : 'text-emerald-500'}`}>
+                              {selectedMatchday.status === 'calculated' ? 'GIORNATA CHIUSA' : 'GIORNATA APERTA'}
+                           </p>
+                        </div>
                         <div className="flex gap-2">
-                           <button onClick={() => dbService.saveMatchdayVotes(selectedMatchday.id, selectedMatchday.votes).then(() => showNotification("Voti salvati!"))} className="px-4 py-2 bg-slate-100 rounded-lg font-bold text-[9px] uppercase">Salva</button>
-                           {selectedMatchday.status !== 'calculated' && <button onClick={() => { if(confirm("Calcolare i punteggi?")) dbService.calculateMatchday(selectedMatchday.id, selectedMatchday.votes).then(() => { refreshData(); setSelectedMatchday(null); }); }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-[9px] uppercase">Calcola</button>}
+                           {selectedMatchday.status === 'calculated' ? (
+                             <button onClick={() => { if(confirm("Riaprire la giornata?")) dbService.saveMatchdayVotes(selectedMatchday.id, selectedMatchday.votes, 'open').then(() => refreshData()); }} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-[9px] uppercase">Riapri</button>
+                           ) : (
+                             <>
+                               <button onClick={() => dbService.saveMatchdayVotes(selectedMatchday.id, selectedMatchday.votes).then(() => showNotification("Voti salvati!"))} className="px-4 py-2 bg-slate-100 rounded-lg font-bold text-[9px] uppercase">Salva</button>
+                               <button onClick={() => { if(confirm("Calcolare i punteggi? La giornata verrà chiusa.")) dbService.calculateMatchday(selectedMatchday.id, selectedMatchday.votes).then(() => { refreshData(); setSelectedMatchday(null); }); }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-[9px] uppercase">Calcola</button>
+                             </>
+                           )}
                         </div>
                     </div>
+                    {selectedMatchday.status === 'calculated' && (
+                      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center gap-3 text-amber-800 text-[10px] font-bold">
+                        <Lock size={14} /> I voti sono bloccati. Premi 'Riapri' per modificarli.
+                      </div>
+                    )}
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-[10px]">
                           <thead>
@@ -377,15 +393,16 @@ const App: React.FC = () => {
                           <tbody>
                             {players.map(p => {
                               const s = selectedMatchday.votes[p.id] || { voto: 0, goals: 0, assists: 0, ownGoals: 0, yellowCard: false, redCard: false, extraPoints: 0 };
+                              const isLocked = selectedMatchday.status === 'calculated';
                               return (
                                 <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
                                    <td className="py-2 font-bold uppercase">{p.name}</td>
-                                   <td><input type="number" step="0.5" value={s.voto || ''} onChange={e => updateStat(p.id, 'voto', e.target.value)} className="w-10 p-1 border rounded text-center" /></td>
-                                   <td><input type="number" value={s.goals || ''} onChange={e => updateStat(p.id, 'goals', e.target.value)} className="w-8 p-1 border rounded text-center" /></td>
-                                   <td><input type="number" value={s.assists || ''} onChange={e => updateStat(p.id, 'assists', e.target.value)} className="w-8 p-1 border rounded text-center" /></td>
+                                   <td><input type="number" step="0.5" disabled={isLocked} value={s.voto || ''} onChange={e => updateStat(p.id, 'voto', e.target.value)} className="w-10 p-1 border rounded text-center disabled:bg-slate-50" /></td>
+                                   <td><input type="number" disabled={isLocked} value={s.goals || ''} onChange={e => updateStat(p.id, 'goals', e.target.value)} className="w-8 p-1 border rounded text-center disabled:bg-slate-50" /></td>
+                                   <td><input type="number" disabled={isLocked} value={s.assists || ''} onChange={e => updateStat(p.id, 'assists', e.target.value)} className="w-8 p-1 border rounded text-center disabled:bg-slate-50" /></td>
                                    <td className="flex gap-2 py-2 justify-center">
-                                      <input type="checkbox" checked={s.yellowCard} onChange={e => updateStat(p.id, 'yellowCard', e.target.checked)} className="accent-yellow-400" />
-                                      <input type="checkbox" checked={s.redCard} onChange={e => updateStat(p.id, 'redCard', e.target.checked)} className="accent-red-500" />
+                                      <input type="checkbox" disabled={isLocked} checked={s.yellowCard} onChange={e => updateStat(p.id, 'yellowCard', e.target.checked)} className="accent-yellow-400" />
+                                      <input type="checkbox" disabled={isLocked} checked={s.redCard} onChange={e => updateStat(p.id, 'redCard', e.target.checked)} className="accent-red-500" />
                                    </td>
                                 </tr>
                               );
@@ -673,7 +690,7 @@ const App: React.FC = () => {
                 <div className="space-y-6 fade-in">
                    <h2 className="text-2xl font-black uppercase italic text-orange-950 tracking-tighter">Classifica</h2>
                    <div className="bg-white rounded-3xl shadow-2xl border border-orange-100 overflow-hidden">
-                      {allUsers.length > 0 ? allUsers.sort((a, b) => b.team.totalPoints - a.team.totalPoints).map((u, idx) => (
+                      {allUsers.length > 0 ? [...allUsers].sort((a, b) => (b.team?.totalPoints || 0) - (a.team?.totalPoints || 0)).map((u, idx) => (
                          <div key={u.id} className={`flex items-center justify-between p-5 border-b last:border-0 hover:bg-slate-50 transition-colors ${u.id === currentUser.id ? 'bg-amber-50/50' : ''}`}>
                             <div className="flex items-center gap-5">
                                <span className={`font-black text-[12px] w-8 h-8 rounded-xl flex items-center justify-center shadow-lg ${idx === 0 ? 'bg-amber-400 text-orange-950 rotate-12' : (idx === 1 ? 'bg-slate-300 text-slate-700' : (idx === 2 ? 'bg-orange-400 text-orange-950' : 'bg-slate-100 text-slate-400'))}`}>{idx + 1}</span>
