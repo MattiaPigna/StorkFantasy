@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, ShoppingCart, Shield, LogOut, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Loader2, Zap, Edit3, Video, Lock, ExternalLink, FileText, Sparkles, BookOpen, ArrowDown, AlertTriangle, UserPlus, Zap as ZapIcon, Save, Calculator, RefreshCcw, Download, Smartphone, MousePointer2, Info, Image as ImageIcon } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
@@ -64,6 +65,8 @@ const App: React.FC = () => {
 
   const loginSectionRef = useRef<HTMLElement>(null);
   const pwaGuideRef = useRef<HTMLElement>(null);
+  const rulesSectionRef = useRef<HTMLElement>(null);
+  const cardsSectionRef = useRef<HTMLElement>(null);
   const [aiTip, setAiTip] = useState<string>('Caricamento scout...');
 
   const scrollToLogin = () => loginSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -566,11 +569,66 @@ const App: React.FC = () => {
                   </div>
                 </section>
 
+                {/* --- SEZIONE REGOLE FANTACALCIO (BONUS/MALUS) --- */}
+                <section ref={rulesSectionRef as any} className="py-24 px-6 bg-white">
+                  <div className="max-w-5xl mx-auto space-y-12">
+                     <h2 className="text-4xl font-black uppercase italic text-orange-950 tracking-tighter text-center">Regole Fantacalcio</h2>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="bg-slate-50 rounded-[40px] p-8 shadow-sm border border-emerald-100">
+                          <h3 className="text-xs font-black uppercase text-emerald-600 italic mb-6 flex items-center gap-2">
+                             <Zap size={16} fill="currentColor" /> Bonus Punteggio
+                          </h3>
+                          <div className="space-y-4">
+                            {fantasyRules.filter(r => r.type === 'bonus').map(r => (
+                              <div key={r.id} className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm">
+                                <div><p className="font-black uppercase text-[11px] text-orange-950">{r.name}</p><p className="text-[9px] opacity-50 italic">{r.description}</p></div>
+                                <span className="font-black text-emerald-600 text-sm">+{r.points}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 rounded-[40px] p-8 shadow-sm border border-red-100">
+                          <h3 className="text-xs font-black uppercase text-red-600 italic mb-6 flex items-center gap-2">
+                             <AlertTriangle size={16} fill="currentColor" /> Malus Punteggio
+                          </h3>
+                          <div className="space-y-4">
+                            {fantasyRules.filter(r => r.type === 'malus').map(r => (
+                              <div key={r.id} className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm">
+                                <div><p className="font-black uppercase text-[11px] text-orange-950">{r.name}</p><p className="text-[9px] opacity-50 italic">{r.description}</p></div>
+                                <span className="font-black text-red-600 text-sm">{r.points}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                     </div>
+                  </div>
+                </section>
+
+                {/* --- SEZIONE CARTE SPECIALI --- */}
+                <section ref={cardsSectionRef as any} className="py-24 px-6 bg-[#fdfaf8]">
+                  <div className="max-w-6xl mx-auto space-y-12">
+                    <h2 className="text-4xl font-black uppercase italic text-orange-950 tracking-tighter text-center">Carte Speciali Stork League</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                        {specialCards.map(c => (
+                          <div key={c.id} className="bg-white rounded-[32px] shadow-xl overflow-hidden border border-orange-100 aspect-[3/4.5] flex flex-col hover:scale-105 transition-all">
+                             <div className="h-1/2 bg-orange-950 relative flex items-center justify-center p-4">
+                                {c.image_url ? <img src={c.image_url} className="h-full w-full object-contain" /> : <Sparkles size={40} className="text-amber-500/20" />}
+                             </div>
+                             <div className="p-4 flex-1 flex flex-col justify-center text-center space-y-2">
+                                <h3 className="font-black uppercase italic text-orange-950 text-[10px]">{c.name}</h3>
+                                <div className="bg-amber-100 text-amber-700 font-black uppercase text-[7px] py-1 px-2 rounded-full inline-block">{c.effect}</div>
+                             </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </section>
+
                 <section className="py-24 px-6 bg-white">
                   <div className="max-w-5xl mx-auto space-y-12">
                     <h2 className="text-4xl font-black uppercase italic text-orange-950 tracking-tighter text-center">Regolamento Ufficiale Torneo</h2>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-                        <div className="lg:col-span-2 bg-slate-50 p-8 rounded-[40px] shadow-sm prose prose-slate max-w-none">
+                        <div className="lg:col-span-2 bg-slate-50 p-8 rounded-[40px] shadow-sm border border-orange-50 prose prose-slate max-w-none">
                           {tournamentRules?.html_content ? <div dangerouslySetInnerHTML={{ __html: tournamentRules.html_content }} /> : <p className="italic text-slate-300">Documento in arrivo...</p>}
                         </div>
                         <div className="bg-orange-950 p-10 rounded-[40px] text-white shadow-2xl flex flex-col items-center text-center">
