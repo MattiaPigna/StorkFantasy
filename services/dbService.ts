@@ -75,7 +75,9 @@ export const dbService = {
   async uploadFile(bucket: string, folder: string, file: File): Promise<string> {
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      // Generiamo un nome file pulito
+      const cleanFileName = file.name.replace(/[^\w.]/g, '_').toLowerCase();
+      const fileName = `${folder}/${Date.now()}-${cleanFileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
@@ -85,6 +87,10 @@ export const dbService = {
         });
 
       if (uploadError) {
+        // Se l'errore è relativo alle RLS, lanciamo un messaggio più chiaro
+        if (uploadError.message.includes("row-level security")) {
+          throw new Error("Errore Permessi Supabase: Esegui lo script SQL fornito per abilitare l'upload nel bucket storage.");
+        }
         throw new Error(`[Storage] ${uploadError.message}`);
       }
 
