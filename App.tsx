@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, ShoppingCart, Shield, LogOut, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Loader2, Zap, Edit3, Video, Lock, ExternalLink, FileText, Sparkles, BookOpen, ArrowDown, AlertTriangle, UserPlus, Zap as ZapIcon, Save, Calculator, RefreshCcw } from 'lucide-react';
+import { Home, ShoppingCart, Shield, LogOut, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Loader2, Zap, Edit3, Video, Lock, ExternalLink, FileText, Sparkles, BookOpen, ArrowDown, AlertTriangle, UserPlus, Zap as ZapIcon, Save, Calculator, RefreshCcw, Download, Smartphone, MousePointer2, Info } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
 import { Player, UserTeam, AppSettings, User, Role, Matchday, Sponsor, FantasyRule, SpecialCard, TournamentRules, PlayerMatchStats } from './types';
 import { Pitch } from './components/Pitch';
@@ -23,6 +22,10 @@ const App: React.FC = () => {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [authData, setAuthData] = useState({ email: '', password: '', teamName: '', managerName: '' });
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // PWA States
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
 
   const [isAdminPath, setIsAdminPath] = useState(false);
   const [adminPass, setAdminPass] = useState('');
@@ -59,9 +62,14 @@ const App: React.FC = () => {
   const tourneyInputRef = useRef<HTMLInputElement>(null);
 
   const loginSectionRef = useRef<HTMLElement>(null);
+  const pwaGuideRef = useRef<HTMLElement>(null);
   
   const scrollToLogin = () => {
     loginSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const scrollToPwaGuide = () => {
+    pwaGuideRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const [ytInput, setYtInput] = useState('');
@@ -119,6 +127,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     refreshData();
+    
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setIsAppInstalled(true);
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const profile = await dbService.getProfile(session.user.id);
@@ -127,8 +147,25 @@ const App: React.FC = () => {
         setCurrentUser(null);
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const handleInstallAction = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setIsAppInstalled(true);
+      }
+    } else {
+      scrollToPwaGuide();
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,7 +281,7 @@ const App: React.FC = () => {
       {isAdminPath ? (
         !adminAuthenticated ? (
           <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 w-full">
-            <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl">
+            <div className="w-full max-sm bg-white rounded-3xl p-8 shadow-2xl">
               <button onClick={() => setIsAdminPath(false)} className="mb-4 flex items-center gap-2 text-slate-400 font-bold uppercase text-[10px]"><ChevronLeft size={14}/> Torna alla Landing</button>
               <h1 className="text-xl font-black text-slate-900 text-center uppercase mb-6 italic">Accesso Amministratore</h1>
               <form onSubmit={(e) => { e.preventDefault(); if(adminPass === ADMIN_PASSWORD_REQUIRED) setAdminAuthenticated(true); else alert("Password Errata"); }} className="space-y-4">
@@ -270,7 +307,6 @@ const App: React.FC = () => {
                    <button onClick={() => setAdminAuthenticated(false)} className="bg-red-50 p-3 rounded-xl text-red-500"><X size={18}/></button>
                 </div>
 
-                {/* ADMIN: MATCHDAYS TAB */}
                 {adminActiveTab === 'matchdays' && (
                   selectedMatchday ? (
                     <div className="bg-white p-6 rounded-[32px] shadow-xl space-y-6">
@@ -342,141 +378,6 @@ const App: React.FC = () => {
                   )
                 )}
 
-                {/* ADMIN: PLAYERS TAB */}
-                {adminActiveTab === 'players' && (
-                  <div className="space-y-6">
-                     <div className="bg-white p-6 rounded-[32px] shadow">
-                        <h3 className="text-sm font-black uppercase italic mb-4">Aggiungi Calciatore</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                           <input type="text" placeholder="Nome Cognome" value={newPlayer.name} onChange={e => setNewPlayer({...newPlayer, name: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                           <input type="text" placeholder="Squadra" value={newPlayer.team} onChange={e => setNewPlayer({...newPlayer, team: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                           <select value={newPlayer.role} onChange={e => setNewPlayer({...newPlayer, role: e.target.value as Role})} className="p-3 rounded-xl border text-xs font-bold">
-                              <option value="P">Portiere</option>
-                              <option value="M">Movimento</option>
-                           </select>
-                           <input type="number" placeholder="Prezzo SK" value={newPlayer.price} onChange={e => setNewPlayer({...newPlayer, price: parseInt(e.target.value) || 0})} className="p-3 rounded-xl border text-xs font-bold" />
-                        </div>
-                        <button onClick={() => dbService.upsertPlayer(newPlayer).then(() => { setNewPlayer({name:'', team:'', role:'M', price:10}); refreshData(); })} className="mt-4 w-full py-4 bg-orange-950 text-amber-500 rounded-xl font-black text-[10px] uppercase tracking-widest">AGGIUNGI AL LISTONE</button>
-                     </div>
-                     <div className="bg-white p-4 rounded-[32px] shadow overflow-hidden">
-                        <table className="w-full text-[10px] text-left">
-                           <thead><tr className="border-b font-black uppercase text-slate-400"><th className="p-3">Nome</th><th className="p-3">Team</th><th className="p-3">Ruolo</th><th className="p-3">SK</th><th className="p-3 text-right">Azioni</th></tr></thead>
-                           <tbody>
-                              {players.map(p => (
-                                 <tr key={p.id} className="border-b hover:bg-slate-50">
-                                    <td className="p-3 font-bold uppercase">{p.name}</td>
-                                    <td className="p-3 uppercase opacity-40">{p.team}</td>
-                                    <td className="p-3"><span className={`px-2 py-0.5 rounded font-black text-white ${ROLE_COLORS[p.role]}`}>{p.role}</span></td>
-                                    <td className="p-3 font-black">{p.price}</td>
-                                    <td className="p-3 text-right"><button onClick={() => { if(confirm("Eliminare?")) dbService.deletePlayer(p.id).then(() => refreshData()); }} className="text-red-500"><Trash2 size={16}/></button></td>
-                                 </tr>
-                              ))}
-                           </tbody>
-                        </table>
-                     </div>
-                  </div>
-                )}
-
-                {/* ADMIN: RULES TAB */}
-                {adminActiveTab === 'rules' && (
-                  <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-[32px] shadow">
-                      <h3 className="text-sm font-black uppercase mb-4 italic">Nuova Regola Fantacalcio</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <input type="text" placeholder="Nome Regola" value={newRule.name} onChange={e => setNewRule({...newRule, name: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                        <input type="text" placeholder="Descrizione Breve" value={newRule.description} onChange={e => setNewRule({...newRule, description: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                        <input type="number" step="0.5" value={newRule.points} onChange={e => setNewRule({...newRule, points: parseFloat(e.target.value)})} className="p-3 rounded-xl border text-xs font-bold" />
-                        <select value={newRule.type} onChange={e => setNewRule({...newRule, type: e.target.value as any})} className="p-3 rounded-xl border text-xs font-bold">
-                          <option value="bonus">Bonus (+)</option>
-                          <option value="malus">Malus (-)</option>
-                        </select>
-                      </div>
-                      <button onClick={() => dbService.upsertFantasyRule(newRule).then(() => {setNewRule({name:'',description:'',points:1,type:'bonus'}); refreshData();})} className="mt-4 w-full py-4 bg-orange-950 text-amber-500 rounded-xl font-black text-[10px] uppercase">SALVA REGOLA</button>
-                    </div>
-                    <div className="bg-white p-4 rounded-[32px] shadow overflow-hidden">
-                      <table className="w-full text-left text-[10px]">
-                        <thead><tr className="border-b font-black uppercase text-slate-400"><th className="p-3">Nome</th><th className="p-3">Punti</th><th className="p-3">Tipo</th><th className="p-3 text-right">Azioni</th></tr></thead>
-                        <tbody>
-                          {fantasyRules.map(r => (
-                            <tr key={r.id} className="border-b">
-                              <td className="p-3 font-bold uppercase">{r.name}</td>
-                              <td className={`p-3 font-black ${r.type === 'bonus' ? 'text-emerald-500' : 'text-red-500'}`}>{r.points > 0 ? `+${r.points}` : r.points}</td>
-                              <td className="p-3 uppercase text-[8px] font-black">{r.type}</td>
-                              <td className="p-3 text-right"><button onClick={() => dbService.deleteFantasyRule(r.id).then(() => refreshData())} className="text-red-500"><Trash2 size={14}/></button></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* ADMIN: CARDS TAB */}
-                {adminActiveTab === 'cards' && (
-                  <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-[32px] shadow">
-                      <h3 className="text-sm font-black uppercase mb-4 italic">Nuova Carta Speciale Stork League</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" placeholder="Nome Carta" value={newCard.name} onChange={e => setNewCard({...newCard, name: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                        <input type="text" placeholder="Tag Effetto (es. Gol x2)" value={newCard.effect} onChange={e => setNewCard({...newCard, effect: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                        <textarea placeholder="Descrizione completa dell'effetto" value={newCard.description} onChange={e => setNewCard({...newCard, description: e.target.value})} className="p-3 rounded-xl border text-xs font-bold md:col-span-2" rows={2} />
-                        <div className="md:col-span-2">
-                           <input type="file" ref={cardInputRef} hidden onChange={e => e.target.files?.[0] && setCardImageFile(e.target.files[0])} />
-                           <button onClick={() => cardInputRef.current?.click()} className="w-full py-4 bg-slate-50 border-2 border-dashed rounded-xl text-[10px] font-black uppercase">{cardImageFile ? 'Immagine Caricata' : 'Carica Design Carta'}</button>
-                        </div>
-                      </div>
-                      <button onClick={async () => {
-                        let url = '';
-                        if(cardImageFile) url = await dbService.uploadFile('cards', 'img', cardImageFile);
-                        await dbService.upsertSpecialCard({...newCard, image_url: url});
-                        setNewCard({name:'',effect:'',description:''}); setCardImageFile(null); refreshData();
-                      }} className="mt-4 w-full py-4 bg-orange-950 text-amber-500 rounded-xl font-black text-[10px] uppercase">CREA CARTA</button>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      {specialCards.map(c => (
-                        <div key={c.id} className="bg-white p-4 rounded-2xl shadow relative group">
-                           {c.image_url && <img src={c.image_url} className="w-full aspect-square object-contain mb-2" />}
-                           <p className="font-black uppercase text-[10px]">{c.name}</p>
-                           <button onClick={() => dbService.deleteSpecialCard(c.id).then(() => refreshData())} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100"><X size={10}/></button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ADMIN: SPONSORS TAB */}
-                {adminActiveTab === 'sponsors' && (
-                  <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-[32px] shadow">
-                      <h3 className="text-sm font-black uppercase mb-4 italic">Nuovo Sponsor</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" placeholder="Nome Azienda" value={newSponsor.name} onChange={e => setNewSponsor({...newSponsor, name: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                        <input type="text" placeholder="Settore" value={newSponsor.type} onChange={e => setNewSponsor({...newSponsor, type: e.target.value})} className="p-3 rounded-xl border text-xs font-bold" />
-                        <div className="md:col-span-2">
-                           <input type="file" ref={sponsorInputRef} hidden onChange={e => e.target.files?.[0] && setSponsorLogoFile(e.target.files[0])} />
-                           <button onClick={() => sponsorInputRef.current?.click()} className="w-full py-4 bg-slate-50 border-2 border-dashed rounded-xl text-[10px] font-black uppercase">{sponsorLogoFile ? 'Logo Caricato' : 'Carica Logo Sponsor'}</button>
-                        </div>
-                      </div>
-                      <button onClick={async () => {
-                        let url = '';
-                        if(sponsorLogoFile) url = await dbService.uploadFile('sponsor', 'logos', sponsorLogoFile);
-                        await dbService.upsertSponsor({...newSponsor, logo_url: url});
-                        setNewSponsor({name:'',type:''}); setSponsorLogoFile(null); refreshData();
-                      }} className="mt-4 w-full py-4 bg-orange-950 text-amber-500 rounded-xl font-black text-[10px] uppercase">SALVA SPONSOR</button>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                       {sponsors.map(s => (
-                         <div key={s.id} className="bg-white p-4 rounded-2xl shadow text-center relative group">
-                            <img src={s.logo_url} className="h-16 w-full object-contain mb-2 mx-auto" />
-                            <p className="font-black uppercase text-[10px]">{s.name}</p>
-                            <button onClick={() => dbService.deleteSponsor(s.id).then(() => refreshData())} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100"><X size={10}/></button>
-                         </div>
-                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ADMIN: SETTINGS TAB */}
                 {adminActiveTab === 'settings' && settings && (
                   <div className="bg-white p-8 rounded-[40px] shadow-xl space-y-8">
                      <h3 className="text-sm font-black uppercase italic text-orange-950">Parametri di Sistema</h3>
@@ -510,33 +411,11 @@ const App: React.FC = () => {
                      </div>
                   </div>
                 )}
-
-                {/* ADMIN: TOURNAMENT TAB */}
-                {adminActiveTab === 'tournament' && (
-                  <div className="bg-white p-8 rounded-[40px] shadow-xl space-y-6">
-                    <h3 className="text-sm font-black uppercase italic text-orange-950">Regolamento Torneo Stork League</h3>
-                    <div className="space-y-4">
-                      <div>
-                         <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Testo Regolamento (HTML)</label>
-                         <textarea value={tourneyHtml} onChange={e => setTourneyHtml(e.target.value)} className="w-full p-6 bg-slate-50 rounded-2xl font-mono text-[11px]" rows={12} placeholder="<h1>Regole...</h1><p>Articolo 1...</p>" />
-                      </div>
-                      <div className="flex items-center gap-4">
-                         <div className="flex-1">
-                            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Documento PDF Ufficiale</label>
-                            <input type="file" ref={tourneyInputRef} hidden onChange={e => e.target.files?.[0] && setTourneyPdfFile(e.target.files[0])} />
-                            <button onClick={() => tourneyInputRef.current?.click()} className="w-full py-4 bg-slate-50 border-2 border-dashed rounded-xl font-black text-[10px] uppercase">{tourneyPdfFile ? 'PDF Selezionato' : 'Sostituisci PDF Regolamento'}</button>
-                         </div>
-                      </div>
-                      <button onClick={handleSaveTournament} disabled={actionLoading} className="w-full py-5 bg-emerald-600 text-white rounded-[20px] font-black text-[11px] uppercase tracking-widest shadow-xl">PUBBLICA REGOLAMENTO</button>
-                    </div>
-                  </div>
-                )}
              </div>
           </div>
         )
       ) : (
         !currentUser ? (
-          /* LANDING PAGE PUBBLICA */
           <div className="w-full bg-[#f8f9fa] overflow-x-hidden">
             <header className="min-h-screen bg-[#1a0702] relative flex flex-col items-center justify-center p-6 text-center">
               <div className="absolute inset-0 opacity-10 concrete-texture" />
@@ -546,19 +425,64 @@ const App: React.FC = () => {
                   STORK<span className="text-amber-500">FANTASY</span>
                 </h1>
                 <p className="text-amber-600 font-bold uppercase tracking-[0.25em] text-[10px] md:text-xs italic">Fantacalcio ufficiale della storkleague</p>
-                <div className="pt-8">
+                <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
                   <button onClick={scrollToLogin} className="px-10 py-4 bg-amber-500 text-orange-950 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:scale-105 transition-all active:scale-95">
                     PARTECIPA ORA
                   </button>
+
+                  {!isAppInstalled && (
+                    <button 
+                      onClick={handleInstallAction} 
+                      className="px-10 py-4 bg-white/10 text-amber-500 border-2 border-amber-500/50 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-amber-500 hover:text-orange-950 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                      {deferredPrompt ? <Download size={18} /> : <Info size={18} />} 
+                      {deferredPrompt ? 'INSTALLA APP' : 'GUIDA APP'}
+                    </button>
+                  )}
                 </div>
               </div>
-              <button onClick={() => document.getElementById('public-info')?.scrollIntoView({ behavior: 'smooth' })} className="absolute bottom-10 animate-bounce text-amber-500/50">
+              <button onClick={() => document.getElementById('pwa-guide')?.scrollIntoView({ behavior: 'smooth' })} className="absolute bottom-10 animate-bounce text-amber-500/50">
                 <ArrowDown size={32} />
               </button>
             </header>
 
             <div id="public-info" className="space-y-0">
-                {/* REGOLAMENTO TORNEO STORK LEAGUE */}
+                <section ref={pwaGuideRef as any} id="pwa-guide" className="py-24 px-6 bg-[#fdfaf8]">
+                  <div className="max-w-5xl mx-auto space-y-12">
+                    <div className="text-center space-y-2">
+                      <div className="inline-block px-4 py-1.5 bg-amber-100 rounded-full text-amber-900 font-black text-[8px] uppercase tracking-widest mb-2 italic">DIGITAL EXPERIENCE</div>
+                      <h2 className="text-4xl font-black uppercase italic text-orange-950 tracking-tighter">Trasforma il sito in App</h2>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Guida all'installazione rapida</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="bg-white p-10 rounded-[40px] shadow-xl border border-orange-50 flex flex-col items-center text-center space-y-4 group hover:border-amber-500 transition-colors">
+                        <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                          <MousePointer2 size={32} />
+                        </div>
+                        <h3 className="font-black uppercase italic text-orange-950 text-sm">1. Clicca Installa</h3>
+                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed uppercase">Usa il tasto INSTALLA in alto. Se non lo vedi, clicca "Condividi" o i tre puntini del browser.</p>
+                      </div>
+
+                      <div className="bg-white p-10 rounded-[40px] shadow-xl border border-orange-50 flex flex-col items-center text-center space-y-4 group hover:border-amber-500 transition-colors">
+                        <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                          <CheckCircle size={32} />
+                        </div>
+                        <h3 className="font-black uppercase italic text-orange-950 text-sm">2. Aggiungi a Home</h3>
+                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed uppercase">Seleziona "Aggiungi a schermata Home" o "Installa App" dalle opzioni del browser.</p>
+                      </div>
+
+                      <div className="bg-white p-10 rounded-[40px] shadow-xl border border-orange-50 flex flex-col items-center text-center space-y-4 group hover:border-amber-500 transition-colors">
+                        <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                          <Smartphone size={32} />
+                        </div>
+                        <h3 className="font-black uppercase italic text-orange-950 text-sm">3. Gioca Subito</h3>
+                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed uppercase">L'icona StorkFantasy apparirà sul tuo telefono per accesso immediato offline!</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
                 <section className="py-24 px-6 bg-white">
                   <div className="max-w-5xl mx-auto space-y-12">
                     <div className="text-center space-y-2">
@@ -579,7 +503,6 @@ const App: React.FC = () => {
                   </div>
                 </section>
 
-                {/* REGOLAMENTO FANTACALCIO */}
                 <section className="py-24 px-6 bg-[#fdfaf8]">
                   <div className="max-w-5xl mx-auto space-y-12">
                     <div className="text-center space-y-2">
@@ -613,7 +536,6 @@ const App: React.FC = () => {
                   </div>
                 </section>
 
-                {/* CARTE SPECIALI STORK LEAGUE */}
                 <section className="py-24 px-6 bg-white overflow-hidden">
                    <div className="max-w-7xl mx-auto space-y-12">
                       <div className="text-center space-y-2">
@@ -636,7 +558,6 @@ const App: React.FC = () => {
                    </div>
                 </section>
 
-                {/* AUTH SECTION */}
                 <section ref={loginSectionRef as any} className="min-h-screen bg-[#1a0702] flex items-center justify-center p-6 relative">
                    <div className="absolute inset-0 opacity-10 concrete-texture" />
                    <div className="w-full max-w-sm bg-white rounded-[48px] p-8 md:p-12 shadow-2xl relative z-10 space-y-10">
@@ -665,7 +586,6 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* DASHBOARD USER AUTENTICATO */
           <>
             <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-orange-950 text-white flex-col z-50">
               <div className="p-10 text-center">
@@ -688,7 +608,6 @@ const App: React.FC = () => {
             <main className="max-w-6xl mx-auto p-4 sm:p-8 mb-24 lg:mb-0">
               {activeTab === 'home' && (
                 <div className="space-y-8 fade-in">
-                   {/* TESTATA TEAM */}
                    <div className="bg-orange-950 rounded-[48px] p-8 text-white shadow-2xl relative overflow-hidden">
                       <div className="flex items-center justify-between relative z-10">
                          <div className="flex items-center gap-6">
@@ -707,7 +626,6 @@ const App: React.FC = () => {
                       </div>
                    </div>
 
-                   {/* LIVE VIDEO E NEWS */}
                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                      <div className="space-y-4">
                        <h3 className="text-xs font-black uppercase flex items-center gap-2 italic text-orange-950"><Video size={16} className="text-red-600 animate-pulse"/> Stork League LIVE</h3>
@@ -745,7 +663,6 @@ const App: React.FC = () => {
                      </div>
                    </div>
 
-                   {/* SPONSOR */}
                    <div className="pt-6 space-y-4">
                       <h3 className="text-[9px] font-black uppercase text-slate-400 text-center tracking-widest italic opacity-50">Sponsor Ufficiali Stork League</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -900,7 +817,6 @@ const App: React.FC = () => {
               )}
             </main>
 
-            {/* NAV MOBILE RIPRISTINATA */}
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-orange-950 flex justify-around p-1 pb-10 z-[100] rounded-t-[40px] shadow-2xl border-t border-amber-500/20">
               <NavBtn active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Home size={24}/>} />
               <NavBtn active={activeTab === 'lineup'} onClick={() => setActiveTab('lineup')} icon={<LayoutPanelLeft size={24}/>} />
