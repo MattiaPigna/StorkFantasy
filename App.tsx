@@ -58,10 +58,8 @@ const App: React.FC = () => {
   const [tourneyPdfFile, setTourneyPdfFile] = useState<File | null>(null);
   const tourneyInputRef = useRef<HTMLInputElement>(null);
 
-  // Fix: Defined missing loginSectionRef to match usage in the landing page section
   const loginSectionRef = useRef<HTMLElement>(null);
   
-  // Fix: Defined missing scrollToLogin function for the "PARTECIPA ORA" button
   const scrollToLogin = () => {
     loginSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -88,7 +86,13 @@ const App: React.FC = () => {
         dbService.getTournamentRules()
       ]);
       setPlayers(p || []);
-      setSettings(s || null);
+      setSettings(s || {
+        leagueName: 'Stork League',
+        isMarketOpen: true,
+        isLineupLocked: false,
+        marketDeadline: '',
+        currentMatchday: 1
+      });
       if (s) {
         setYtInput(s.youtubeLiveUrl || '');
         setMarqueeInput(s.marqueeText || '');
@@ -187,10 +191,32 @@ const App: React.FC = () => {
     if (!settings) return;
     setActionLoading(true);
     try {
-      await dbService.updateSettings({ ...settings, youtubeLiveUrl: ytInput, marqueeText: marqueeInput });
+      await dbService.upsertSettings({ ...settings, youtubeLiveUrl: ytInput, marqueeText: marqueeInput });
       showNotification("Impostazioni salvate!");
-      refreshData(false);
-    } catch (e) { alert("Errore setup"); } finally { setActionLoading(false); }
+      await refreshData(false);
+    } catch (e: any) { 
+      console.error(e);
+      alert("Errore salvataggio settings: " + e.message); 
+    } finally { 
+      setActionLoading(false); 
+    }
+  };
+
+  const handleSaveTournament = async () => {
+    setActionLoading(true);
+    try {
+       let pdfUrl = tournamentRules?.pdf_url || '';
+       if(tourneyPdfFile) pdfUrl = await dbService.uploadFile('rules', 'pdf', tourneyPdfFile);
+       await dbService.upsertTournamentRules({ html_content: tourneyHtml, pdf_url: pdfUrl });
+       setTourneyPdfFile(null); 
+       showNotification("Regolamento Aggiornato");
+       await refreshData(false);
+    } catch (e: any) {
+       console.error(e);
+       alert("Errore salvataggio regolamento: " + e.message);
+    } finally {
+       setActionLoading(false);
+    }
   };
 
   const currentStarters = currentUser?.team.currentLineupIds.map(id => players.find(p => p.id === id)).filter(Boolean) as Player[] || [];
@@ -501,13 +527,7 @@ const App: React.FC = () => {
                             <button onClick={() => tourneyInputRef.current?.click()} className="w-full py-4 bg-slate-50 border-2 border-dashed rounded-xl font-black text-[10px] uppercase">{tourneyPdfFile ? 'PDF Selezionato' : 'Sostituisci PDF Regolamento'}</button>
                          </div>
                       </div>
-                      <button onClick={async () => {
-                         setActionLoading(true);
-                         let pdfUrl = tournamentRules?.pdf_url || '';
-                         if(tourneyPdfFile) pdfUrl = await dbService.uploadFile('rules', 'pdf', tourneyPdfFile);
-                         await dbService.updateTournamentRules({ html_content: tourneyHtml, pdf_url: pdfUrl });
-                         setTourneyPdfFile(null); refreshData(false); setActionLoading(false); showNotification("Regolamento Aggiornato");
-                      }} disabled={actionLoading} className="w-full py-5 bg-emerald-600 text-white rounded-[20px] font-black text-[11px] uppercase tracking-widest shadow-xl">PUBBLICA REGOLAMENTO</button>
+                      <button onClick={handleSaveTournament} disabled={actionLoading} className="w-full py-5 bg-emerald-600 text-white rounded-[20px] font-black text-[11px] uppercase tracking-widest shadow-xl">PUBBLICA REGOLAMENTO</button>
                     </div>
                   </div>
                 )}
@@ -516,7 +536,7 @@ const App: React.FC = () => {
         )
       ) : (
         !currentUser ? (
-          /* LANDING PAGE PUBBLICA RIPRISTINATA E MIGLIORATA */
+          /* LANDING PAGE PUBBLICA */
           <div className="w-full bg-[#f8f9fa] overflow-x-hidden">
             <header className="min-h-screen bg-[#1a0702] relative flex flex-col items-center justify-center p-6 text-center">
               <div className="absolute inset-0 opacity-10 concrete-texture" />
@@ -617,7 +637,7 @@ const App: React.FC = () => {
                 </section>
 
                 {/* AUTH SECTION */}
-                <section ref={loginSectionRef} className="min-h-screen bg-[#1a0702] flex items-center justify-center p-6 relative">
+                <section ref={loginSectionRef as any} className="min-h-screen bg-[#1a0702] flex items-center justify-center p-6 relative">
                    <div className="absolute inset-0 opacity-10 concrete-texture" />
                    <div className="w-full max-w-sm bg-white rounded-[48px] p-8 md:p-12 shadow-2xl relative z-10 space-y-10">
                       <div className="text-center space-y-2">

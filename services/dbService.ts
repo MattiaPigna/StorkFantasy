@@ -206,7 +206,6 @@ export const dbService = {
     if (error) throw error;
   },
 
-  // Nuove Funzionalità: Regole Fantacalcio
   async getFantasyRules(): Promise<FantasyRule[]> {
     const { data, error } = await supabase.from('fantasy_rules').select('*').order('type', { ascending: false });
     if (error) return [];
@@ -214,7 +213,9 @@ export const dbService = {
   },
 
   async upsertFantasyRule(rule: Partial<FantasyRule>) {
-    const { error } = await supabase.from('fantasy_rules').upsert(rule);
+    const payload = { ...rule };
+    if (!payload.id) payload.id = crypto.randomUUID();
+    const { error } = await supabase.from('fantasy_rules').upsert(payload);
     if (error) throw error;
   },
 
@@ -223,7 +224,6 @@ export const dbService = {
     if (error) throw error;
   },
 
-  // Nuove Funzionalità: Carte Speciali
   async getSpecialCards(): Promise<SpecialCard[]> {
     const { data, error } = await supabase.from('special_cards').select('*').order('name');
     if (error) return [];
@@ -231,7 +231,9 @@ export const dbService = {
   },
 
   async upsertSpecialCard(card: Partial<SpecialCard>) {
-    const { error } = await supabase.from('special_cards').upsert(card);
+    const payload = { ...card };
+    if (!payload.id) payload.id = crypto.randomUUID();
+    const { error } = await supabase.from('special_cards').upsert(payload);
     if (error) throw error;
   },
 
@@ -240,21 +242,21 @@ export const dbService = {
     if (error) throw error;
   },
 
-  // Nuove Funzionalità: Regolamento Torneo
   async getTournamentRules(): Promise<TournamentRules | null> {
-    const { data, error } = await supabase.from('tournament_rules').select('*').eq('id', 1).single();
+    const { data, error } = await supabase.from('tournament_rules').select('*').eq('id', 1).maybeSingle();
     if (error) return null;
     return data;
   },
 
-  async updateTournamentRules(rules: Partial<TournamentRules>) {
-    const { error } = await supabase.from('tournament_rules').update(rules).eq('id', 1);
+  async upsertTournamentRules(rules: Partial<TournamentRules>) {
+    const { error } = await supabase.from('tournament_rules').upsert({ id: 1, ...rules });
     if (error) throw error;
   },
 
   async getSettings(): Promise<AppSettings | null> {
-    const { data, error } = await supabase.from('settings').select('*').single();
+    const { data, error } = await supabase.from('settings').select('*').eq('id', 1).maybeSingle();
     if (error) return null;
+    if (!data) return null;
     return {
       leagueName: data.league_name,
       isMarketOpen: data.is_market_open,
@@ -266,8 +268,9 @@ export const dbService = {
     };
   },
 
-  async updateSettings(settings: AppSettings) {
-    const { error } = await supabase.from('settings').update({
+  async upsertSettings(settings: AppSettings) {
+    const { error } = await supabase.from('settings').upsert({
+      id: 1,
       league_name: settings.leagueName,
       is_market_open: settings.isMarketOpen,
       is_lineup_locked: settings.isLineupLocked,
@@ -275,7 +278,7 @@ export const dbService = {
       current_matchday: settings.currentMatchday,
       youtube_live_url: settings.youtubeLiveUrl,
       marquee_text: settings.marqueeText
-    } as any).eq('id', 1);
+    } as any);
     if (error) throw error;
   },
 
@@ -349,7 +352,7 @@ export const dbService = {
     const currentSettings = await this.getSettings();
     if (currentSettings) {
       const nextMatchday = currentSettings.currentMatchday + 1;
-      await this.updateSettings({ ...currentSettings, currentMatchday: nextMatchday });
+      await this.upsertSettings({ ...currentSettings, currentMatchday: nextMatchday });
     }
   },
 
