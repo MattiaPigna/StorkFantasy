@@ -210,6 +210,7 @@ const App: React.FC = () => {
       let finalLogoUrl = editProfileData.logoUrl;
       
       if (tempLogoFile) {
+        // Usa bucket 'logos' per i loghi utente
         finalLogoUrl = await dbService.uploadFile('logos', 'user-logos', tempLogoFile);
       }
 
@@ -260,14 +261,16 @@ const App: React.FC = () => {
     if (!newSponsor.name || !sponsorLogoFile) return alert("Nome e Logo obbligatori!");
     setActionLoading(true);
     try {
-      const url = await dbService.uploadFile('logos', 'sponsor-logos', sponsorLogoFile);
+      // Usa bucket 'sponsor' e cartella 'sponsor-logos' come richiesto
+      const url = await dbService.uploadFile('sponsor', 'sponsor-logos', sponsorLogoFile);
       await dbService.upsertSponsor({ ...newSponsor, logo_url: url });
       setNewSponsor({ name: '', type: '', link_url: '' });
       setSponsorLogoFile(null);
       showNotification("Sponsor salvato!");
       await refreshData(false);
     } catch (e: any) {
-      alert("Errore caricamento sponsor.");
+      console.error("Add Sponsor Error:", e.message);
+      alert("Errore caricamento sponsor: " + e.message);
     } finally {
       setActionLoading(false);
     }
@@ -316,7 +319,7 @@ const App: React.FC = () => {
   const showDashboard = currentUser && !isAdminPath;
 
   return (
-    <div className={`min-h-screen bg-slate-50 relative font-sans w-full ${showDashboard ? 'pb-24 lg:pb-0 lg:pl-64' : ''}`}>
+    <div className={`min-h-screen bg-[#f8f9fa] relative font-sans w-full ${showDashboard ? 'pb-24 lg:pb-0 lg:pl-64' : ''}`}>
       {notification && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[300] bg-emerald-500 text-white px-6 py-2 rounded-full font-bold uppercase text-[10px] shadow-xl flex items-center gap-2">
           <CheckCircle size={14} /> {notification}
@@ -725,10 +728,10 @@ const App: React.FC = () => {
                    <div className="pt-6 space-y-4">
                       <h3 className="text-[9px] font-black uppercase text-slate-400 text-center tracking-widest italic opacity-50">Sponsor Ufficiali</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                         {sponsors.length > 0 ? sponsors.map(s => (
+                         {sponsors && sponsors.length > 0 ? sponsors.map(s => (
                            <SponsorCard key={s.id} icon={<img src={s.logo_url} alt={s.name} className="w-full h-full object-contain" />} name={s.name} type={s.type} link={s.link_url} />
                          )) : (
-                           <div className="col-span-full text-center text-[8px] font-bold text-slate-300 uppercase">Nessuno sponsor caricato...</div>
+                           <div className="col-span-full text-center py-8 text-[10px] font-bold text-slate-300 uppercase tracking-widest border-2 border-dashed border-slate-100 rounded-3xl">Nessuno sponsor disponibile</div>
                          )}
                       </div>
                    </div>
@@ -847,8 +850,8 @@ const App: React.FC = () => {
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-orange-950 flex justify-around p-1 pb-10 z-[100] rounded-t-[40px] shadow-2xl border-t border-amber-500/20">
               <NavBtn active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Home size={24}/>} />
               <NavBtn active={activeTab === 'lineup'} onClick={() => setActiveTab('lineup')} icon={<LayoutPanelLeft size={24}/>} />
-              <NavBtn active={activeTab === 'market'} onClick={() => setActiveTab('market'} icon={<ShoppingCart size={24}/>} />
-              <NavBtn active={activeTab === 'standings'} onClick={() => setActiveTab('standings'} icon={<BarChart3 size={24}/>} />
+              <NavBtn active={activeTab === 'market'} onClick={() => setActiveTab('market')} icon={<ShoppingCart size={24}/>} />
+              <NavBtn active={activeTab === 'standings'} onClick={() => setActiveTab('standings')} icon={<BarChart3 size={24}/>} />
               <button onClick={handleLogout} className="p-4 text-red-500/40 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
             </nav>
           </>

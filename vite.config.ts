@@ -5,8 +5,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Inietta le variabili d'ambiente in modo che siano accessibili alle librerie
-    'process.env': process.env
+    // Inietta variabili d'ambiente in modo sicuro
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
+    'process.env': JSON.stringify({})
   },
   base: '/', 
   server: {
