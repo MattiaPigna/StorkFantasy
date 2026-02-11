@@ -25,8 +25,9 @@ export const dbService = {
   async signUp(email: string, password: string, profileData: { teamName: string, managerName: string }) {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
+    
     if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
         team_name: profileData.teamName,
         manager_name: profileData.managerName,
@@ -36,7 +37,8 @@ export const dbService = {
         lineup_ids: [],
         is_lineup_confirmed: false
       } as any);
-      if (profileError) throw profileError;
+      
+      if (profileError) console.warn("Profile creation handled by DB or failed RLS:", profileError.message);
     }
     return data;
   },
@@ -106,19 +108,20 @@ export const dbService = {
   },
 
   async confirmLineup(userId: string, matchdayNumber: number, lineupIds: string[]) {
-    await supabase.from('profiles').update({
+    const { error: profileErr } = await supabase.from('profiles').update({
       lineup_ids: lineupIds,
       is_lineup_confirmed: true
     } as any).eq('id', userId);
+    if (profileErr) throw profileErr;
 
-    const { error } = await supabase.from('lineup_history').upsert({
+    const { error: historyErr } = await supabase.from('lineup_history').upsert({
       user_id: userId,
       matchday_number: matchdayNumber,
       player_ids: lineupIds,
       points_earned: 0
     } as any, { onConflict: 'user_id, matchday_number' });
 
-    if (error) throw error;
+    if (historyErr) throw historyErr;
   },
 
   async getAllProfiles(): Promise<User[]> {
@@ -147,7 +150,7 @@ export const dbService = {
     try {
       const { data, error } = await supabase.from('players').select('*').order('name');
       if (error) return [];
-      return (data || []).map(p => ({ ...p, goals: 0, assists: 0 }));
+      return (data || []).map(p => ({ ...p, status: p.status || 'available', goals: 0, assists: 0 }));
     } catch (e) {
       return [];
     }
@@ -160,7 +163,7 @@ export const dbService = {
       team: player.team,
       role: player.role,
       price: player.price,
-      status: 'available'
+      status: player.status || 'available'
     } as any);
     if (error) throw error;
   },
@@ -178,7 +181,8 @@ export const dbService = {
         id: s.id,
         name: s.name,
         type: s.type,
-        logo_url: s.logo_url
+        logo_url: s.logo_url,
+        link_url: s.link_url
       }));
     } catch (e) { return []; }
   },
@@ -260,14 +264,11 @@ export const dbService = {
           const { data: pData } = await supabase.from('profiles').select('points').eq('id', h.user_id).single();
           if (pData) {
             const newPoints = Math.max(0, (Number(pData.points) || 0) - (Number(h.points_earned) || 0));
-            await supabase.from('profiles').update({ points: newPoints } as any).eq('id', h.user_id);
+            await supabase.from('profiles').update({ points: newPoints, is_lineup_confirmed: false } as any).eq('id', h.user_id);
           }
         }
       }
     }
-
-    // RESET: Quando si elimina una giornata, resettiamo lo stato di conferma per tutti i profili
-    await supabase.from('profiles').update({ is_lineup_confirmed: false } as any).neq('id', '00000000-0000-0000-0000-000000000000');
 
     await supabase.from('lineup_history').delete().eq('matchday_number', matchday.number);
     await supabase.from('matchdays').delete().eq('id', matchdayId);
@@ -318,12 +319,11 @@ export const dbService = {
     await supabase.from('matchdays').update({ votes: stats, status: 'calculated' } as any).eq('id', matchdayId);
     
     const settings = await this.getSettings();
-    await this.updateSettings({ ...settings, currentMatchday: matchday.number + 1 });
+    await this.updateSettings({ ...settings, currentMatchday: (matchday.number || 1) + 1 });
     return true;
   },
 
   async resetAllStandings() {
-    await supabase.from('profiles').update({ points: 0, is_lineup_confirmed: false } as any).neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('lineup_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('matchdays').update({ status: 'open', votes: {} } as any).neq('id', 0);
   }

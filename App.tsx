@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, ShoppingCart, Shield, LogOut, Key, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Save, AlertTriangle, UserPlus, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Search, RefreshCcw, Loader2, Zap, Edit3, Calculator, Send, Unlock, Lock, Video, Info, Camera, Upload, Award, Coffee, Pizza, Zap as ZapIcon, RotateCcw } from 'lucide-react';
+import { Home, ShoppingCart, Shield, LogOut, Key, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Save, AlertTriangle, UserPlus, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Search, RefreshCcw, Loader2, Zap, Edit3, Calculator, Send, Unlock, Lock, Video, Info, Camera, Upload, Award, Coffee, Pizza, Zap as ZapIcon, RotateCcw, ExternalLink } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
 import { Player, UserTeam, AppSettings, User, Role, PlayerMatchStats, Matchday, Sponsor } from './types';
 import { Pitch } from './components/Pitch';
@@ -42,11 +42,17 @@ const App: React.FC = () => {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
 
   const [selectedMatchday, setSelectedMatchday] = useState<Matchday | null>(null);
-  const [newSponsor, setNewSponsor] = useState<Partial<Sponsor>>({ name: '', type: '' });
+  const [newSponsor, setNewSponsor] = useState<Partial<Sponsor>>({ name: '', type: '', link_url: '' });
   const [sponsorLogoFile, setSponsorLogoFile] = useState<File | null>(null);
   const sponsorInputRef = useRef<HTMLInputElement>(null);
 
   const [newPlayer, setNewPlayer] = useState<Partial<Player>>({ name: '', team: '', role: 'M', price: 10 });
+
+  // Stato per la modifica del profilo utente
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({ teamName: '', managerName: '', logoUrl: '' });
+  const [tempLogoFile, setTempLogoFile] = useState<File | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -75,7 +81,14 @@ const App: React.FC = () => {
       
       if (currentUser) {
         const profile = await dbService.getProfile(currentUser.id);
-        if (profile) setCurrentUser(profile);
+        if (profile) {
+          setCurrentUser(profile);
+          setEditProfileData({ 
+            teamName: profile.team.teamName, 
+            managerName: profile.team.managerName, 
+            logoUrl: profile.team.logo || '' 
+          });
+        }
       }
 
       if (selectedMatchday) {
@@ -117,6 +130,11 @@ const App: React.FC = () => {
           const profile = await dbService.getProfile(session.user.id);
           if (profile) {
             setCurrentUser(profile);
+            setEditProfileData({ 
+              teamName: profile.team.teamName, 
+              managerName: profile.team.managerName, 
+              logoUrl: profile.team.logo || '' 
+            });
             await refreshData(false);
           } else {
             setCurrentUser(null);
@@ -136,7 +154,14 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const profile = await dbService.getProfile(session.user.id);
-        if (profile) setCurrentUser(profile);
+        if (profile) {
+          setCurrentUser(profile);
+          setEditProfileData({ 
+            teamName: profile.team.teamName, 
+            managerName: profile.team.managerName, 
+            logoUrl: profile.team.logo || '' 
+          });
+        }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
       }
@@ -178,6 +203,39 @@ const App: React.FC = () => {
     await dbService.signOut();
   };
 
+  const saveUserProfile = async () => {
+    if (!currentUser) return;
+    setActionLoading(true);
+    try {
+      let finalLogoUrl = editProfileData.logoUrl;
+      
+      if (tempLogoFile) {
+        finalLogoUrl = await dbService.uploadFile('logos', 'user-logos', tempLogoFile);
+      }
+
+      const updatedTeam: UserTeam = {
+        ...currentUser.team,
+        teamName: editProfileData.teamName,
+        managerName: editProfileData.managerName,
+        logo: finalLogoUrl
+      };
+
+      await dbService.updateProfile(currentUser.id, updatedTeam);
+      const profile = await dbService.getProfile(currentUser.id);
+      if (profile) {
+        setCurrentUser(profile);
+        setIsEditingProfile(false);
+        setTempLogoFile(null);
+        showNotification("Profilo aggiornato!");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Errore durante il salvataggio del profilo.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const confirmLineup = async () => {
     if (!currentUser || !settings || settings.isLineupLocked || currentUser.team.isLineupConfirmed) return;
     if (currentUser.team.currentLineupIds.length < 5) {
@@ -202,9 +260,9 @@ const App: React.FC = () => {
     if (!newSponsor.name || !sponsorLogoFile) return alert("Nome e Logo obbligatori!");
     setActionLoading(true);
     try {
-      const url = await dbService.uploadFile('sponsor', 'sponsor-logos', sponsorLogoFile);
+      const url = await dbService.uploadFile('logos', 'sponsor-logos', sponsorLogoFile);
       await dbService.upsertSponsor({ ...newSponsor, logo_url: url });
-      setNewSponsor({ name: '', type: '' });
+      setNewSponsor({ name: '', type: '', link_url: '' });
       setSponsorLogoFile(null);
       showNotification("Sponsor salvato!");
       await refreshData(false);
@@ -255,7 +313,6 @@ const App: React.FC = () => {
     </div>
   );
 
-  // Determina se mostrare il layout con la sidebar
   const showDashboard = currentUser && !isAdminPath;
 
   return (
@@ -430,18 +487,31 @@ const App: React.FC = () => {
                    <div className="space-y-6">
                       <div className="bg-white p-6 rounded-2xl shadow">
                          <h3 className="text-sm font-black uppercase italic mb-4">Carica Sponsor</h3>
-                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <input type="text" placeholder="Nome Attività" value={newSponsor.name} onChange={e => setNewSponsor({...newSponsor, name: e.target.value})} className="p-3 rounded-xl border text-xs" />
-                            <input type="text" placeholder="Settore" value={newSponsor.type} onChange={e => setNewSponsor({...newSponsor, type: e.target.value})} className="p-3 rounded-xl border text-xs" />
-                            <div className="flex items-center gap-2">
-                               <button onClick={() => sponsorInputRef.current?.click()} className="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-bold uppercase border-2 border-dashed border-slate-300">
-                                  {sponsorLogoFile ? 'Logo Selezionato' : 'Seleziona Logo'}
-                               </button>
-                               <input type="file" ref={sponsorInputRef} onChange={e => { if(e.target.files?.[0]) setSponsorLogoFile(e.target.files[0]); }} hidden accept="image/*" />
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-black uppercase text-slate-400">Nome Attività</label>
+                               <input type="text" placeholder="Es: Pizzeria Rossi" value={newSponsor.name} onChange={e => setNewSponsor({...newSponsor, name: e.target.value})} className="w-full p-3 rounded-xl border text-xs" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-black uppercase text-slate-400">Settore</label>
+                               <input type="text" placeholder="Es: Ristorazione" value={newSponsor.type} onChange={e => setNewSponsor({...newSponsor, type: e.target.value})} className="w-full p-3 rounded-xl border text-xs" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-black uppercase text-slate-400">URL Sito Web</label>
+                               <input type="text" placeholder="Es: https://www.pizzeriarossi.it" value={newSponsor.link_url} onChange={e => setNewSponsor({...newSponsor, link_url: e.target.value})} className="w-full p-3 rounded-xl border text-xs" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-black uppercase text-slate-400">Logo Sponsor</label>
+                               <div className="flex items-center gap-2">
+                                  <button onClick={() => sponsorInputRef.current?.click()} className="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-bold uppercase border-2 border-dashed border-slate-300">
+                                     {sponsorLogoFile ? 'Logo Selezionato' : 'Seleziona Logo'}
+                                  </button>
+                                  <input type="file" ref={sponsorInputRef} onChange={e => { if(e.target.files?.[0]) setSponsorLogoFile(e.target.files[0]); }} hidden accept="image/*" />
+                               </div>
                             </div>
                          </div>
                          <button onClick={handleAddSponsor} disabled={actionLoading} className="mt-4 w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
-                           {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <><Save size={14}/> CARICA</>}
+                           {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <><Save size={14}/> CARICA SPONSOR</>}
                          </button>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
@@ -451,6 +521,11 @@ const App: React.FC = () => {
                                   <img src={s.logo_url} alt={s.name} className="max-w-full max-h-full object-contain" />
                                </div>
                                <p className="text-[9px] font-black uppercase text-center truncate">{s.name}</p>
+                               {s.link_url && (
+                                  <div className="text-[7px] text-indigo-500 text-center font-bold flex items-center justify-center gap-1 mt-1 truncate">
+                                     <ExternalLink size={8} /> Link Attivo
+                                  </div>
+                               )}
                                <button onClick={() => { if(confirm("Rimuovere sponsor?")) dbService.deleteSponsor(s.id).then(() => refreshData()); }} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100"><X size={12}/></button>
                             </div>
                          ))}
@@ -544,11 +619,47 @@ const App: React.FC = () => {
                             <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20">
                                {currentUser.team.logo ? <img src={currentUser.team.logo} className="w-full h-full object-cover rounded-xl" /> : <Shield size={28} className="text-amber-500/50" />}
                             </div>
-                            <div><h2 className="text-xl font-black italic uppercase text-amber-500 tracking-tighter">{currentUser.team.teamName}</h2><p className="text-orange-300 font-bold uppercase text-[8px] tracking-widest">{currentUser.team.managerName}</p></div>
+                            <div>
+                               <h2 className="text-xl font-black italic uppercase text-amber-500 tracking-tighter">{currentUser.team.teamName}</h2>
+                               <p className="text-orange-300 font-bold uppercase text-[8px] tracking-widest">{currentUser.team.managerName}</p>
+                            </div>
                          </div>
-                         <div className="text-right"><p className="text-[8px] text-amber-500 uppercase font-black">Totale</p><p className="text-3xl font-black italic">{currentUser.team.totalPoints.toFixed(1)}</p></div>
+                         <div className="flex items-center gap-4">
+                            <div className="text-right"><p className="text-[8px] text-amber-500 uppercase font-black">Totale</p><p className="text-3xl font-black italic">{currentUser.team.totalPoints.toFixed(1)}</p></div>
+                            <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="bg-white/10 p-2 rounded-xl text-amber-500 hover:bg-white/20 transition-all">
+                               {isEditingProfile ? <X size={20}/> : <Edit3 size={20}/>}
+                            </button>
+                         </div>
                       </div>
                    </div>
+
+                   {isEditingProfile && (
+                     <div className="bg-white p-6 rounded-3xl shadow-xl border-2 border-orange-100 fade-in space-y-4">
+                        <h3 className="text-sm font-black uppercase italic text-orange-950">Impostazioni Profilo</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <div className="space-y-2">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Nome Squadra</label>
+                              <input type="text" value={editProfileData.teamName} onChange={e => setEditProfileData({...editProfileData, teamName: e.target.value})} className="w-full p-3 rounded-xl bg-slate-50 border font-bold text-xs outline-none focus:border-orange-500" />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Nome Manager</label>
+                              <input type="text" value={editProfileData.managerName} onChange={e => setEditProfileData({...editProfileData, managerName: e.target.value})} className="w-full p-3 rounded-xl bg-slate-50 border font-bold text-xs outline-none focus:border-orange-500" />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Logo Team</label>
+                              <div className="flex gap-2">
+                                 <button onClick={() => logoInputRef.current?.click()} className="flex-1 p-3 rounded-xl bg-slate-100 border-2 border-dashed font-bold text-[9px] uppercase">
+                                    {tempLogoFile ? 'Logo Selezionato' : 'Cambia Logo'}
+                                 </button>
+                                 <input type="file" ref={logoInputRef} hidden accept="image/*" onChange={e => e.target.files?.[0] && setTempLogoFile(e.target.files[0])} />
+                              </div>
+                           </div>
+                        </div>
+                        <button onClick={saveUserProfile} disabled={actionLoading} className="w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg">
+                           {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <><Save size={14}/> AGGIORNA PROFILO</>}
+                        </button>
+                     </div>
+                   )}
 
                    {marqueeNews.length > 0 && (
                     <div className="relative overflow-hidden bg-orange-950/5 border-y border-orange-950/10 py-2.5 -mx-4 sm:-mx-6">
@@ -615,7 +726,7 @@ const App: React.FC = () => {
                       <h3 className="text-[9px] font-black uppercase text-slate-400 text-center tracking-widest italic opacity-50">Sponsor Ufficiali</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                          {sponsors.length > 0 ? sponsors.map(s => (
-                           <SponsorCard key={s.id} icon={<img src={s.logo_url} alt={s.name} className="w-full h-full object-contain" />} name={s.name} type={s.type} />
+                           <SponsorCard key={s.id} icon={<img src={s.logo_url} alt={s.name} className="w-full h-full object-contain" />} name={s.name} type={s.type} link={s.link_url} />
                          )) : (
                            <div className="col-span-full text-center text-[8px] font-bold text-slate-300 uppercase">Nessuno sponsor caricato...</div>
                          )}
@@ -736,8 +847,8 @@ const App: React.FC = () => {
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-orange-950 flex justify-around p-1 pb-10 z-[100] rounded-t-[40px] shadow-2xl border-t border-amber-500/20">
               <NavBtn active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Home size={24}/>} />
               <NavBtn active={activeTab === 'lineup'} onClick={() => setActiveTab('lineup')} icon={<LayoutPanelLeft size={24}/>} />
-              <NavBtn active={activeTab === 'market'} onClick={() => setActiveTab('market')} icon={<ShoppingCart size={24}/>} />
-              <NavBtn active={activeTab === 'standings'} onClick={() => setActiveTab('standings')} icon={<BarChart3 size={24}/>} />
+              <NavBtn active={activeTab === 'market'} onClick={() => setActiveTab('market'} icon={<ShoppingCart size={24}/>} />
+              <NavBtn active={activeTab === 'standings'} onClick={() => setActiveTab('standings'} icon={<BarChart3 size={24}/>} />
               <button onClick={handleLogout} className="p-4 text-red-500/40 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
             </nav>
           </>
@@ -752,17 +863,30 @@ const App: React.FC = () => {
   );
 };
 
-const SponsorCard: React.FC<{ icon: React.ReactNode; name: string; type: string }> = ({ icon, name, type }) => (
-  <div className="bg-white p-4 rounded-3xl border border-orange-50 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-     <div className="w-11 h-11 bg-orange-50 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 p-2 shadow-inner">
+const SponsorCard: React.FC<{ icon: React.ReactNode; name: string; type: string; link?: string }> = ({ icon, name, type, link }) => {
+  const content = (
+    <div className="bg-white p-4 rounded-3xl border border-orange-50 shadow-sm flex items-center gap-4 hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]">
+      <div className="w-11 h-11 bg-orange-50 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 p-2 shadow-inner">
         {icon}
-     </div>
-     <div className="truncate">
+      </div>
+      <div className="truncate flex-1">
         <p className="text-[10px] font-black uppercase text-orange-950 italic truncate tracking-tight">{name}</p>
         <p className="text-[7px] font-black uppercase text-slate-400 tracking-widest opacity-60">{type}</p>
-     </div>
-  </div>
-);
+      </div>
+      {link && <ExternalLink size={10} className="text-orange-950/20 shrink-0" />}
+    </div>
+  );
+
+  if (link) {
+    return (
+      <a href={link} target="_blank" rel="noopener noreferrer" className="block">
+        {content}
+      </a>
+    );
+  }
+
+  return content;
+};
 
 const NavBtn: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode }> = ({ active, onClick, icon }) => (
   <button onClick={onClick} className={`p-4 transition-all duration-300 ${active ? 'text-amber-500 scale-125' : 'text-white/20'}`}>{icon}</button>

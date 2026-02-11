@@ -53,6 +53,7 @@ export interface Sponsor {
   name: string;
   type: string;
   logo_url: string;
+  link_url?: string;
 }
 
 export interface AppSettings {
