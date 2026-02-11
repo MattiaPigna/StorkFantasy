@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, ShoppingCart, Shield, LogOut, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Loader2, Zap, Edit3, Video, Lock, ExternalLink, FileText, Sparkles, BookOpen, ArrowDown, AlertTriangle, UserPlus, Zap as ZapIcon, Save, Calculator, RefreshCcw, Download, Smartphone, MousePointer2, Info, Image as ImageIcon } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
@@ -244,7 +245,9 @@ const App: React.FC = () => {
     setActionLoading(true);
     try {
        let pdfUrl = tournamentRules?.pdf_url || '';
-       if(tourneyPdfFile) pdfUrl = await dbService.uploadFile(STORAGE_BUCKET, 'rules', tourneyPdfFile);
+       if(tourneyPdfFile) {
+         pdfUrl = await dbService.uploadFile(STORAGE_BUCKET, 'rules', tourneyPdfFile);
+       }
        await dbService.upsertTournamentRules({ html_content: tourneyHtml, pdf_url: pdfUrl });
        setTourneyPdfFile(null); 
        showNotification("Regolamento Aggiornato");
@@ -469,13 +472,18 @@ const App: React.FC = () => {
                       </div>
                       <button onClick={async () => {
                         setActionLoading(true);
-                        let url = '';
-                        if(cardImageFile) url = await dbService.uploadFile(STORAGE_BUCKET, 'cards', cardImageFile);
-                        await dbService.upsertSpecialCard({...newCard, image_url: url});
-                        setNewCard({name:'', description:'', effect:''});
-                        setCardImageFile(null);
-                        setActionLoading(false);
-                        refreshData();
+                        try {
+                          let url = '';
+                          if(cardImageFile) {
+                            url = await dbService.uploadFile(STORAGE_BUCKET, 'cards', cardImageFile);
+                          }
+                          await dbService.upsertSpecialCard({...newCard, image_url: url || (newCard.image_url ?? '')});
+                          setNewCard({name:'', description:'', effect:''});
+                          setCardImageFile(null);
+                          refreshData();
+                          showNotification("Carta salvata!");
+                        } catch (e: any) { alert(e.message); }
+                        finally { setActionLoading(false); }
                       }} disabled={actionLoading} className="mt-4 w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px]">SALVA CARTA</button>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -530,13 +538,18 @@ const App: React.FC = () => {
                       </div>
                       <button onClick={async () => {
                          setActionLoading(true);
-                         let url = '';
-                         if(sponsorLogoFile) url = await dbService.uploadFile(STORAGE_BUCKET, 'logos', sponsorLogoFile);
-                         await dbService.upsertSponsor({...newSponsor, logo_url: url});
-                         setNewSponsor({name:'', type:'', link_url:''});
-                         setSponsorLogoFile(null);
-                         setActionLoading(false);
-                         refreshData();
+                         try {
+                           let url = '';
+                           if(sponsorLogoFile) {
+                             url = await dbService.uploadFile(STORAGE_BUCKET, 'logos', sponsorLogoFile);
+                           }
+                           await dbService.upsertSponsor({...newSponsor, logo_url: url || (newSponsor.logo_url ?? '')});
+                           setNewSponsor({name:'', type:'', link_url:''});
+                           setSponsorLogoFile(null);
+                           refreshData();
+                           showNotification("Sponsor aggiunto!");
+                         } catch (e: any) { alert(e.message); }
+                         finally { setActionLoading(false); }
                       }} disabled={actionLoading} className="mt-4 w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px]">AGGIUNGI SPONSOR</button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
