@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, ShoppingCart, Shield, LogOut, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Loader2, Zap, Edit3, Video, Lock, ExternalLink, FileText, Sparkles, BookOpen, ArrowDown, AlertTriangle, UserPlus, Zap as ZapIcon, Save, Calculator, RefreshCcw, Download, Smartphone, MousePointer2, Info } from 'lucide-react';
+import { Home, ShoppingCart, Shield, LogOut, LayoutPanelLeft, BarChart3, Trash2, CheckCircle, X, Star, Settings as SettingsIcon, ChevronLeft, PlusCircle, Loader2, Zap, Edit3, Video, Lock, ExternalLink, FileText, Sparkles, BookOpen, ArrowDown, AlertTriangle, UserPlus, Zap as ZapIcon, Save, Calculator, RefreshCcw, Download, Smartphone, MousePointer2, Info, Image as ImageIcon } from 'lucide-react';
 import { ROLE_COLORS } from './constants';
 import { Player, UserTeam, AppSettings, User, Role, Matchday, Sponsor, FantasyRule, SpecialCard, TournamentRules, PlayerMatchStats } from './types';
 import { Pitch } from './components/Pitch';
 import { dbService, supabase } from './services/dbService';
 
 const ADMIN_PASSWORD_REQUIRED = "stork2025";
+const STORAGE_BUCKET = "stork_fantasy";
 
 const getYouTubeEmbedUrl = (url?: string) => {
   if (!url) return null;
@@ -243,7 +244,7 @@ const App: React.FC = () => {
     setActionLoading(true);
     try {
        let pdfUrl = tournamentRules?.pdf_url || '';
-       if(tourneyPdfFile) pdfUrl = await dbService.uploadFile('rules', 'pdf', tourneyPdfFile);
+       if(tourneyPdfFile) pdfUrl = await dbService.uploadFile(STORAGE_BUCKET, 'rules', tourneyPdfFile);
        await dbService.upsertTournamentRules({ html_content: tourneyHtml, pdf_url: pdfUrl });
        setTourneyPdfFile(null); 
        showNotification("Regolamento Aggiornato");
@@ -281,7 +282,7 @@ const App: React.FC = () => {
       {isAdminPath ? (
         !adminAuthenticated ? (
           <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 w-full">
-            <div className="w-full max-sm bg-white rounded-3xl p-8 shadow-2xl">
+            <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl">
               <button onClick={() => setIsAdminPath(false)} className="mb-4 flex items-center gap-2 text-slate-400 font-bold uppercase text-[10px]"><ChevronLeft size={14}/> Torna alla Landing</button>
               <h1 className="text-xl font-black text-slate-900 text-center uppercase mb-6 italic">Accesso Amministratore</h1>
               <form onSubmit={(e) => { e.preventDefault(); if(adminPass === ADMIN_PASSWORD_REQUIRED) setAdminAuthenticated(true); else alert("Password Errata"); }} className="space-y-4">
@@ -307,6 +308,7 @@ const App: React.FC = () => {
                    <button onClick={() => setAdminAuthenticated(false)} className="bg-red-50 p-3 rounded-xl text-red-500"><X size={18}/></button>
                 </div>
 
+                {/* ADMIN TABS CONTENT */}
                 {adminActiveTab === 'matchdays' && (
                   selectedMatchday ? (
                     <div className="bg-white p-6 rounded-[32px] shadow-xl space-y-6">
@@ -378,6 +380,180 @@ const App: React.FC = () => {
                   )
                 )}
 
+                {adminActiveTab === 'players' && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-3xl shadow-lg">
+                      <h3 className="font-black uppercase italic mb-4">Aggiungi Calciatore</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <input type="text" placeholder="Nome" value={newPlayer.name} onChange={e => setNewPlayer({...newPlayer, name: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <input type="text" placeholder="Squadra" value={newPlayer.team} onChange={e => setNewPlayer({...newPlayer, team: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <select value={newPlayer.role} onChange={e => setNewPlayer({...newPlayer, role: e.target.value as Role})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm">
+                          <option value="M">Movimento</option>
+                          <option value="P">Portiere</option>
+                        </select>
+                        <input type="number" placeholder="Prezzo" value={newPlayer.price} onChange={e => setNewPlayer({...newPlayer, price: parseInt(e.target.value)})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                      </div>
+                      <button onClick={() => dbService.upsertPlayer(newPlayer).then(() => {setNewPlayer({name:'', team:'', role:'M', price:10}); refreshData();})} className="mt-4 w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px]">AGGIUNGI</button>
+                    </div>
+                    <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+                      <table className="w-full text-left text-[10px]">
+                        <thead className="bg-slate-50 font-black uppercase">
+                          <tr><th className="p-4">Nome</th><th className="p-4">Team</th><th className="p-4">Ruolo</th><th className="p-4">Prezzo</th><th className="p-4 text-right">Azioni</th></tr>
+                        </thead>
+                        <tbody>
+                          {players.map(p => (
+                            <tr key={p.id} className="border-b">
+                              <td className="p-4 font-bold uppercase">{p.name}</td>
+                              <td className="p-4 uppercase opacity-50">{p.team}</td>
+                              <td className="p-4"><span className={`px-2 py-1 rounded text-white font-black ${ROLE_COLORS[p.role]}`}>{p.role}</span></td>
+                              <td className="p-4 font-black">{p.price} SK</td>
+                              <td className="p-4 text-right"><button onClick={() => dbService.deletePlayer(p.id).then(() => refreshData())} className="text-red-500"><Trash2 size={16}/></button></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {adminActiveTab === 'rules' && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-3xl shadow-lg">
+                      <h3 className="font-black uppercase italic mb-4">Nuova Regola Fanta</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <input type="text" placeholder="Nome Regola" value={newRule.name} onChange={e => setNewRule({...newRule, name: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <input type="text" placeholder="Descrizione" value={newRule.description} onChange={e => setNewRule({...newRule, description: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <input type="number" step="0.5" placeholder="Punti" value={newRule.points} onChange={e => setNewRule({...newRule, points: parseFloat(e.target.value)})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <select value={newRule.type} onChange={e => setNewRule({...newRule, type: e.target.value as 'bonus' | 'malus'})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm">
+                          <option value="bonus">Bonus</option>
+                          <option value="malus">Malus</option>
+                        </select>
+                      </div>
+                      <button onClick={() => dbService.upsertFantasyRule(newRule).then(() => {setNewRule({name:'', description:'', points:1, type:'bonus'}); refreshData();})} className="mt-4 w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px]">SALVA REGOLA</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       {['bonus', 'malus'].map(type => (
+                         <div key={type} className="bg-white rounded-3xl shadow-lg overflow-hidden">
+                           <div className={`p-4 font-black uppercase text-[10px] text-white ${type === 'bonus' ? 'bg-emerald-600' : 'bg-red-600'}`}>{type}</div>
+                           <div className="divide-y">
+                             {fantasyRules.filter(r => r.type === type).map(r => (
+                               <div key={r.id} className="p-4 flex justify-between items-center">
+                                 <div><p className="font-bold uppercase text-xs">{r.name}</p><p className="text-[10px] opacity-50">{r.description}</p></div>
+                                 <div className="flex items-center gap-4">
+                                   <span className="font-black text-sm">{r.points > 0 ? `+${r.points}` : r.points}</span>
+                                   <button onClick={() => dbService.deleteFantasyRule(r.id).then(() => refreshData())} className="text-slate-300 hover:text-red-500"><X size={14}/></button>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {adminActiveTab === 'cards' && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-3xl shadow-lg">
+                      <h3 className="font-black uppercase italic mb-4">Aggiungi Carta Speciale</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <input type="text" placeholder="Nome Carta" value={newCard.name} onChange={e => setNewCard({...newCard, name: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <input type="text" placeholder="Descrizione" value={newCard.description} onChange={e => setNewCard({...newCard, description: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <input type="text" placeholder="Effetto (es. +3 Gol)" value={newCard.effect} onChange={e => setNewCard({...newCard, effect: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                      </div>
+                      <div className="mt-4 flex items-center gap-4">
+                        <input type="file" ref={cardInputRef} className="hidden" onChange={e => setCardImageFile(e.target.files?.[0] || null)} />
+                        <button onClick={() => cardInputRef.current?.click()} className="px-6 py-3 bg-slate-100 rounded-xl font-bold text-xs uppercase flex items-center gap-2">
+                           <ImageIcon size={16}/> {cardImageFile ? cardImageFile.name : 'Carica Immagine'}
+                        </button>
+                      </div>
+                      <button onClick={async () => {
+                        setActionLoading(true);
+                        let url = '';
+                        if(cardImageFile) url = await dbService.uploadFile(STORAGE_BUCKET, 'cards', cardImageFile);
+                        await dbService.upsertSpecialCard({...newCard, image_url: url});
+                        setNewCard({name:'', description:'', effect:''});
+                        setCardImageFile(null);
+                        setActionLoading(false);
+                        refreshData();
+                      }} disabled={actionLoading} className="mt-4 w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px]">SALVA CARTA</button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {specialCards.map(c => (
+                        <div key={c.id} className="bg-white rounded-2xl overflow-hidden shadow border flex flex-col relative group">
+                          <button onClick={() => dbService.deleteSpecialCard(c.id).then(() => refreshData())} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"><X size={12}/></button>
+                          <div className="h-32 bg-orange-950 p-2"><img src={c.image_url} className="w-full h-full object-contain" /></div>
+                          <div className="p-3 text-center flex-1 flex flex-col justify-center">
+                            <p className="font-black uppercase text-[9px] line-clamp-1">{c.name}</p>
+                            <p className="text-[7px] text-amber-600 font-bold uppercase">{c.effect}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {adminActiveTab === 'tournament' && (
+                  <div className="bg-white p-8 rounded-3xl shadow-lg space-y-6">
+                    <h3 className="font-black uppercase italic">Regolamento Torneo (HTML)</h3>
+                    <textarea 
+                      value={tourneyHtml} 
+                      onChange={e => setTourneyHtml(e.target.value)} 
+                      className="w-full h-96 p-6 bg-slate-50 rounded-2xl border-none outline-none font-mono text-xs leading-relaxed" 
+                      placeholder="Scrivi qui il codice HTML per il regolamento..."
+                    />
+                    <div className="flex items-center gap-4 pt-4">
+                       <input type="file" ref={tourneyInputRef} className="hidden" onChange={e => setTourneyPdfFile(e.target.files?.[0] || null)} />
+                       <button onClick={() => tourneyInputRef.current?.click()} className="px-6 py-3 bg-slate-100 rounded-xl font-bold text-xs uppercase flex items-center gap-2">
+                          <FileText size={16}/> {tourneyPdfFile ? tourneyPdfFile.name : 'Carica PDF Regolamento'}
+                       </button>
+                       {tournamentRules?.pdf_url && <span className="text-[10px] text-emerald-500 font-bold">PDF caricato</span>}
+                    </div>
+                    <button onClick={handleSaveTournament} disabled={actionLoading} className="w-full py-4 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px] tracking-widest">AGGIORNA DOCUMENTI</button>
+                  </div>
+                )}
+
+                {adminActiveTab === 'sponsors' && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-3xl shadow-lg">
+                      <h3 className="font-black uppercase italic mb-4">Nuovo Sponsor</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <input type="text" placeholder="Nome Sponsor" value={newSponsor.name} onChange={e => setNewSponsor({...newSponsor, name: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <input type="text" placeholder="Tipo (es. Platinum)" value={newSponsor.type} onChange={e => setNewSponsor({...newSponsor, type: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                        <input type="text" placeholder="Link Sito" value={newSponsor.link_url} onChange={e => setNewSponsor({...newSponsor, link_url: e.target.value})} className="p-3 bg-slate-50 rounded-xl border-none outline-none font-bold text-sm" />
+                      </div>
+                      <div className="mt-4 flex items-center gap-4">
+                        <input type="file" ref={sponsorInputRef} className="hidden" onChange={e => setSponsorLogoFile(e.target.files?.[0] || null)} />
+                        <button onClick={() => sponsorInputRef.current?.click()} className="px-6 py-3 bg-slate-100 rounded-xl font-bold text-xs uppercase flex items-center gap-2">
+                           <ImageIcon size={16}/> {sponsorLogoFile ? sponsorLogoFile.name : 'Carica Logo'}
+                        </button>
+                      </div>
+                      <button onClick={async () => {
+                         setActionLoading(true);
+                         let url = '';
+                         if(sponsorLogoFile) url = await dbService.uploadFile(STORAGE_BUCKET, 'logos', sponsorLogoFile);
+                         await dbService.upsertSponsor({...newSponsor, logo_url: url});
+                         setNewSponsor({name:'', type:'', link_url:''});
+                         setSponsorLogoFile(null);
+                         setActionLoading(false);
+                         refreshData();
+                      }} disabled={actionLoading} className="mt-4 w-full py-3 bg-orange-950 text-amber-500 rounded-xl font-black uppercase text-[10px]">AGGIUNGI SPONSOR</button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {sponsors.map(s => (
+                        <div key={s.id} className="bg-white p-4 rounded-3xl shadow border flex items-center gap-4 group">
+                           <div className="w-16 h-16 bg-slate-50 rounded-2xl p-2 flex items-center justify-center"><img src={s.logo_url} className="w-full h-full object-contain" /></div>
+                           <div className="flex-1 truncate">
+                             <p className="font-black uppercase text-xs truncate">{s.name}</p>
+                             <p className="text-[9px] opacity-50 uppercase font-bold">{s.type}</p>
+                           </div>
+                           <button onClick={() => dbService.deleteSponsor(s.id).then(() => refreshData())} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {adminActiveTab === 'settings' && settings && (
                   <div className="bg-white p-8 rounded-[40px] shadow-xl space-y-8">
                      <h3 className="text-sm font-black uppercase italic text-orange-950">Parametri di Sistema</h3>
@@ -385,11 +561,11 @@ const App: React.FC = () => {
                         <div className="space-y-4">
                            <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
                               <div><p className="text-[11px] font-black uppercase">Mercato Aperto</p><p className="text-[9px] text-slate-400">Permetti scambi di giocatori</p></div>
-                              <input type="checkbox" checked={settings.isMarketOpen} onChange={e => setSettings({...settings, isMarketOpen: e.target.checked})} className="w-6 h-6" />
+                              <input type="checkbox" checked={settings.isMarketOpen} onChange={e => setSettings({...settings, isMarketOpen: e.target.checked})} className="w-6 h-6 accent-orange-500" />
                            </div>
                            <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
                               <div><p className="text-[11px] font-black uppercase">Formazioni Bloccate</p><p className="text-[9px] text-slate-400">Impedisci cambio campo</p></div>
-                              <input type="checkbox" checked={settings.isLineupLocked} onChange={e => setSettings({...settings, isLineupLocked: e.target.checked})} className="w-6 h-6" />
+                              <input type="checkbox" checked={settings.isLineupLocked} onChange={e => setSettings({...settings, isLineupLocked: e.target.checked})} className="w-6 h-6 accent-orange-500" />
                            </div>
                         </div>
                         <div className="space-y-4">
