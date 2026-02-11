@@ -66,10 +66,33 @@ export interface AppSettings {
   marqueeText?: string;
 }
 
-export interface RuleEntry {
+export interface FantasyRule {
   id: string;
   name: string;
-  points: number;
-  category: 'Tecnico' | 'Comportamentale' | 'Goliardia';
   description: string;
+  points: number;
+  type: 'bonus' | 'malus';
+}
+
+// Added RuleEntry to match the usage in constants.ts
+export interface RuleEntry {
+  id: string;
+  category: string;
+  name: string;
+  points: number;
+  description: string;
+}
+
+export interface SpecialCard {
+  id: string;
+  name: string;
+  description: string;
+  effect: string;
+  image_url?: string;
+}
+
+export interface TournamentRules {
+  id: number;
+  pdf_url?: string;
+  html_content?: string;
 }

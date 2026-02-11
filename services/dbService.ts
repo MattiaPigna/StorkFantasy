@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { User, Player, AppSettings, UserTeam, PlayerMatchStats, Matchday, Sponsor } from "../types";
+import { User, Player, AppSettings, UserTeam, PlayerMatchStats, Matchday, Sponsor, FantasyRule, SpecialCard, TournamentRules } from "../types";
 
 const SUPABASE_URL = "https://bquvdggddgjyvtkrwyca.supabase.co"; 
 const SUPABASE_KEY = "sb_publishable_s4vUV91k50Jl3UCwtgU19w_ffxaM6C1";
@@ -183,10 +183,7 @@ export const dbService = {
   async getSponsors(): Promise<Sponsor[]> {
     try {
       const { data, error } = await supabase.from('sponsors').select('*').order('name');
-      if (error) {
-        console.error("Errore recupero sponsor:", error.message);
-        return [];
-      }
+      if (error) return [];
       return (data || []).map(s => ({
         id: s.id,
         name: s.name || 'Sponsor',
@@ -194,40 +191,64 @@ export const dbService = {
         logo_url: s.logo_url || '',
         link_url: s.link_url || ''
       }));
-    } catch (e) { 
-      console.error("Eccezione recupero sponsor:", e);
-      return []; 
-    }
+    } catch (e) { return []; }
   },
 
   async upsertSponsor(s: Partial<Sponsor>) {
-    if (!s.name || !s.logo_url) throw new Error("Dati sponsor incompleti.");
-    
-    // Proviamo a fare l'inserimento omettendo link_url se sospettiamo che la colonna manchi,
-    // ma dato lo script SQL sopra, ora la colonna DEVE esserci.
-    const payload: any = {
-      name: s.name,
-      type: s.type || '',
-      logo_url: s.logo_url,
-      link_url: s.link_url || ''
-    };
-    
+    const payload: any = { name: s.name, type: s.type || '', logo_url: s.logo_url, link_url: s.link_url || '' };
     if (s.id) payload.id = s.id;
-
     const { error } = await supabase.from('sponsors').upsert(payload);
-    
-    if (error) {
-      console.error("Database Upsert Error:", error.message);
-      // Se l'errore persiste nonostante l'SQL, diamo un messaggio chiaro
-      if (error.message.includes('link_url')) {
-        throw new Error("Colonna 'link_url' mancante nel database. Esegui lo script SQL fornito.");
-      }
-      throw error;
-    }
+    if (error) throw error;
   },
 
   async deleteSponsor(id: string) {
     const { error } = await supabase.from('sponsors').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // Nuove Funzionalità: Regole Fantacalcio
+  async getFantasyRules(): Promise<FantasyRule[]> {
+    const { data, error } = await supabase.from('fantasy_rules').select('*').order('type', { ascending: false });
+    if (error) return [];
+    return data;
+  },
+
+  async upsertFantasyRule(rule: Partial<FantasyRule>) {
+    const { error } = await supabase.from('fantasy_rules').upsert(rule);
+    if (error) throw error;
+  },
+
+  async deleteFantasyRule(id: string) {
+    const { error } = await supabase.from('fantasy_rules').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // Nuove Funzionalità: Carte Speciali
+  async getSpecialCards(): Promise<SpecialCard[]> {
+    const { data, error } = await supabase.from('special_cards').select('*').order('name');
+    if (error) return [];
+    return data;
+  },
+
+  async upsertSpecialCard(card: Partial<SpecialCard>) {
+    const { error } = await supabase.from('special_cards').upsert(card);
+    if (error) throw error;
+  },
+
+  async deleteSpecialCard(id: string) {
+    const { error } = await supabase.from('special_cards').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // Nuove Funzionalità: Regolamento Torneo
+  async getTournamentRules(): Promise<TournamentRules | null> {
+    const { data, error } = await supabase.from('tournament_rules').select('*').eq('id', 1).single();
+    if (error) return null;
+    return data;
+  },
+
+  async updateTournamentRules(rules: Partial<TournamentRules>) {
+    const { error } = await supabase.from('tournament_rules').update(rules).eq('id', 1);
     if (error) throw error;
   },
 
@@ -338,24 +359,15 @@ export const dbService = {
   },
 
   async resetAllStandings() {
-    const { error: pErr } = await supabase.from('profiles').update({
+    await supabase.from('profiles').update({
       points: 0,
       credits: 250,
       player_ids: [],
       lineup_ids: [],
       is_lineup_confirmed: false
     } as any).neq('id', '00000000-0000-0000-0000-000000000000');
-    
     await supabase.from('lineup_history').delete().neq('id', 0);
-    
-    await supabase.from('settings').update({
-      current_matchday: 1,
-      is_market_open: true,
-      is_lineup_locked: false
-    } as any).eq('id', 1);
-
+    await supabase.from('settings').update({ current_matchday: 1, is_market_open: true, is_lineup_locked: false } as any).eq('id', 1);
     await supabase.from('matchdays').delete().neq('id', 0);
-    
-    if (pErr) throw pErr;
   }
 };
