@@ -87,16 +87,13 @@ const App: React.FC = () => {
     if (showSpinner) setLoading(true);
     console.log("Starting data refresh...");
     
-    // Safety timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.warn("Data refresh timed out after 10 seconds. Forcing loading to false.");
-        setLoading(false);
-      }
-    }, 10000);
+    // Timeout di sicurezza di 10 secondi
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Data refresh timed out after 10 seconds")), 10000)
+    );
 
     try {
-      const [p, s, u, m, sp, fr, sc, tr] = await Promise.all([
+      const dataPromise = Promise.all([
         dbService.getPlayers(),
         dbService.getSettings(),
         dbService.getAllProfiles(),
@@ -106,8 +103,8 @@ const App: React.FC = () => {
         dbService.getSpecialCards(),
         dbService.getTournamentRules()
       ]);
-      
-      console.log("Data fetched successfully:", { playersCount: p?.length, settings: s });
+
+      const [p, s, u, m, sp, fr, sc, tr] = await Promise.race([dataPromise, timeoutPromise]) as any;
       
       setPlayers(p || []);
       const currentSettings = s || {
@@ -135,12 +132,14 @@ const App: React.FC = () => {
         const profile = await dbService.getProfile(session.user.id);
         if (profile) setCurrentUser(profile);
       }
-    } catch (err) {
-      console.error("Refresh error in App.tsx:", err);
+      console.log("Data refresh completed successfully.");
+    } catch (err: any) {
+      console.error("Refresh error:", err.message || err);
+      if (err.message?.includes("timed out")) {
+        console.warn("Forcing loading to false due to timeout.");
+      }
     } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
-      console.log("Data refresh completed.");
     }
   };
 
