@@ -279,7 +279,7 @@ export const dbService = {
       league_name: settings.leagueName,
       is_market_open: settings.isMarketOpen,
       is_lineup_locked: settings.isLineupLocked,
-      market_deadline: settings.marketDeadline,
+      market_deadline: settings.marketDeadline || null,
       current_matchday: settings.currentMatchday,
       youtube_live_url: settings.youtubeLiveUrl,
       marquee_text: settings.marqueeText

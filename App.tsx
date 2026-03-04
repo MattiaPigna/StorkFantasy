@@ -72,6 +72,7 @@ const App: React.FC = () => {
 
   const [ytInput, setYtInput] = useState('');
   const [marqueeInput, setMarqueeInput] = useState('');
+  const [deadlineInput, setDeadlineInput] = useState('');
 
   const scrollToLogin = () => loginSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
   const scrollToPwaGuide = () => pwaGuideRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -102,6 +103,17 @@ const App: React.FC = () => {
       const startTime = Date.now();
       console.log(`[${startTime}] 🔄 Avvio refresh dati...`);
       
+      const formatDateForInput = (dateStr?: string) => {
+        if (!dateStr) return '';
+        try {
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) return '';
+          return date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+        } catch (e) {
+          return '';
+        }
+      };
+
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("Data refresh timed out after 20 seconds")), 20000)
       );
@@ -147,6 +159,7 @@ const App: React.FC = () => {
               setSettings(val);
               setYtInput(val.youtubeLiveUrl || '');
               setMarqueeInput(val.marqueeText || '');
+              setDeadlineInput(formatDateForInput(val.marketDeadline));
             }
             if (name === 'profiles') setAllUsers(val || []);
             if (name === 'matchdays') setMatchdays(val || []);
@@ -268,7 +281,12 @@ const App: React.FC = () => {
     if (!settings) return;
     setActionLoading(true);
     try {
-      await dbService.upsertSettings({ ...settings, youtubeLiveUrl: ytInput, marqueeText: marqueeInput });
+      await dbService.upsertSettings({ 
+        ...settings, 
+        youtubeLiveUrl: ytInput, 
+        marqueeText: marqueeInput,
+        marketDeadline: deadlineInput 
+      });
       showNotification("Impostazioni salvate!");
       await refreshData(false);
     } catch (e: any) { alert(e.message); }
@@ -382,6 +400,7 @@ const App: React.FC = () => {
           handleClearTournament={handleClearTournament}
           handleAddSponsor={handleAddSponsor} handleAddCard={handleAddCard} updateVote={updateVote}
           ytInput={ytInput} setYtInput={setYtInput} marqueeInput={marqueeInput} setMarqueeInput={setMarqueeInput}
+          deadlineInput={deadlineInput} setDeadlineInput={setDeadlineInput}
         />
       ) : (
         !currentUser ? (

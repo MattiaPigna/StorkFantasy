@@ -57,6 +57,8 @@ interface AdminViewProps {
   setYtInput: (val: string) => void;
   marqueeInput: string;
   setMarqueeInput: (val: string) => void;
+  deadlineInput: string;
+  setDeadlineInput: (val: string) => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = (props) => {
@@ -67,7 +69,8 @@ export const AdminView: React.FC<AdminViewProps> = (props) => {
     tourneyPdfFile, setTourneyPdfFile, tourneyInputRef, sponsorLogoFile, setSponsorLogoFile, sponsorInputRef,
     newSponsor, setNewSponsor, newPlayer, setNewPlayer, newRule, setNewRule, newCard, setNewCard, cardImageFile,
     setCardImageFile, cardInputRef, actionLoading, refreshData, handleSaveVotes, handleSaveSettings,
-    handleSaveTournament, handleClearTournament, handleAddSponsor, handleAddCard, updateVote, ytInput, setYtInput, marqueeInput, setMarqueeInput
+    handleSaveTournament, handleClearTournament, handleAddSponsor, handleAddCard, updateVote, ytInput, setYtInput, marqueeInput, setMarqueeInput,
+    deadlineInput, setDeadlineInput
   } = props;
 
   if (!adminAuthenticated) {
@@ -305,6 +308,10 @@ export const AdminView: React.FC<AdminViewProps> = (props) => {
                      <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
                         <div><p className="text-[11px] font-black uppercase">Formazioni Bloccate</p></div>
                         <input type="checkbox" checked={settings.isLineupLocked} onChange={e => setSettings({...settings, isLineupLocked: e.target.checked})} className="w-6 h-6" />
+                     </div>
+                     <div className="space-y-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Scadenza Mercato</p>
+                        <input type="datetime-local" value={deadlineInput} onChange={e => setDeadlineInput(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl text-xs font-bold" />
                      </div>
                   </div>
                   <div className="space-y-4">
