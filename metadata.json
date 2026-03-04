@@ -2,7 +2,7 @@
   "name": "StorkFantasy",
   "short_name": "StorkFantasy",
   "description": "Elite Futsal Fantasy Management",
-  "start_url": "./index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#431407",
   "theme_color": "#f97316",

@@ -85,6 +85,16 @@ const App: React.FC = () => {
 
   const refreshData = async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
+    console.log("Starting data refresh...");
+    
+    // Safety timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn("Data refresh timed out after 10 seconds. Forcing loading to false.");
+        setLoading(false);
+      }
+    }, 10000);
+
     try {
       const [p, s, u, m, sp, fr, sc, tr] = await Promise.all([
         dbService.getPlayers(),
@@ -96,6 +106,9 @@ const App: React.FC = () => {
         dbService.getSpecialCards(),
         dbService.getTournamentRules()
       ]);
+      
+      console.log("Data fetched successfully:", { playersCount: p?.length, settings: s });
+      
       setPlayers(p || []);
       const currentSettings = s || {
         leagueName: 'Stork League',
@@ -123,9 +136,11 @@ const App: React.FC = () => {
         if (profile) setCurrentUser(profile);
       }
     } catch (err) {
-      console.error("Refresh error", err);
+      console.error("Refresh error in App.tsx:", err);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
+      console.log("Data refresh completed.");
     }
   };
 

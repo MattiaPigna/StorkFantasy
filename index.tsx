@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './index.css';
 import App from './App';
 
 // Protezione globale ultra-robusta eseguita prima di ogni altra cosa
