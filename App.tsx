@@ -87,57 +87,73 @@ const App: React.FC = () => {
     if (showSpinner) setLoading(true);
     console.log("Starting data refresh...");
     
-    // Timeout di sicurezza di 10 secondi
     const timeoutPromise = new Promise((_, reject) => 
       setTimeout(() => reject(new Error("Data refresh timed out after 10 seconds")), 10000)
     );
 
     try {
-      const dataPromise = Promise.all([
-        dbService.getPlayers(),
-        dbService.getSettings(),
-        dbService.getAllProfiles(),
-        dbService.getMatchdays(),
-        dbService.getSponsors(),
-        dbService.getFantasyRules(),
-        dbService.getSpecialCards(),
-        dbService.getTournamentRules()
-      ]);
+      const promises = [
+        { name: 'players', promise: dbService.getPlayers() },
+        { name: 'settings', promise: dbService.getSettings() },
+        { name: 'profiles', promise: dbService.getAllProfiles() },
+        { name: 'matchdays', promise: dbService.getMatchdays() },
+        { name: 'sponsors', promise: dbService.getSponsors() },
+        { name: 'rules', promise: dbService.getFantasyRules() },
+        { name: 'cards', promise: dbService.getSpecialCards() },
+        { name: 'tournament', promise: dbService.getTournamentRules() }
+      ];
 
-      const [p, s, u, m, sp, fr, sc, tr] = await Promise.race([dataPromise, timeoutPromise]) as any;
-      
-      setPlayers(p || []);
-      const currentSettings = s || {
-        leagueName: 'Stork League',
-        isMarketOpen: true,
-        isLineupLocked: false,
-        marketDeadline: '',
-        currentMatchday: 1,
-        marqueeText: ''
-      };
-      setSettings(currentSettings);
-      setYtInput(currentSettings.youtubeLiveUrl || '');
-      setMarqueeInput(currentSettings.marqueeText || '');
-      
-      setAllUsers(u || []);
-      setMatchdays(m || []);
-      setSponsors(sp || []);
-      setFantasyRules(fr || []);
-      setSpecialCards(sc || []);
-      setTournamentRules(tr || null);
-      if (tr) setTourneyHtml(tr.html_content || '');
+      const results = await Promise.race([
+        Promise.allSettled(promises.map(p => p.promise)),
+        timeoutPromise
+      ]) as any;
+
+      if (Array.isArray(results)) {
+        results.forEach((result, index) => {
+          const name = promises[index].name;
+          if (result.status === 'fulfilled') {
+            const val = result.value;
+            if (name === 'players') setPlayers(val || []);
+            if (name === 'settings' && val) {
+              setSettings(val);
+              setYtInput(val.youtubeLiveUrl || '');
+              setMarqueeInput(val.marqueeText || '');
+            }
+            if (name === 'profiles') setAllUsers(val || []);
+            if (name === 'matchdays') setMatchdays(val || []);
+            if (name === 'sponsors') setSponsors(val || []);
+            if (name === 'rules') setFantasyRules(val || []);
+            if (name === 'cards') setSpecialCards(val || []);
+            if (name === 'tournament') {
+              setTournamentRules(val || null);
+              if (val) setTourneyHtml(val.html_content || '');
+            }
+          } else {
+            console.error(`Failed to load ${name}:`, result.reason);
+          }
+        });
+      }
+
+      // Default settings if failed
+      if (!settings) {
+        setSettings({
+          leagueName: 'Stork League',
+          isMarketOpen: true,
+          isLineupLocked: false,
+          marketDeadline: '',
+          currentMatchday: 1,
+          marqueeText: ''
+        });
+      }
       
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const profile = await dbService.getProfile(session.user.id);
         if (profile) setCurrentUser(profile);
       }
-      console.log("Data refresh completed successfully.");
+      console.log("Data refresh process finished.");
     } catch (err: any) {
       console.error("Refresh error:", err.message || err);
-      if (err.message?.includes("timed out")) {
-        console.warn("Forcing loading to false due to timeout.");
-      }
     } finally {
       setLoading(false);
     }
