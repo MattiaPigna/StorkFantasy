@@ -13,12 +13,11 @@ export const dbService = {
       await supabase.auth.signOut();
       localStorage.clear();
       sessionStorage.clear();
-      setTimeout(() => {
-        window.location.href = '/'; 
-      }, 100);
+      // Use window.location.origin to ensure we go back to the root correctly
+      window.location.href = window.location.origin;
     } catch (e) {
       console.error("SignOut Error:", e);
-      window.location.reload();
+      window.location.href = '/';
     }
   },
 
@@ -213,17 +212,9 @@ export const dbService = {
   },
 
   async getFantasyRules(): Promise<FantasyRule[]> {
-    try {
-      const { data, error } = await supabase.from('fantasy_rules').select('*').order('type', { ascending: false });
-      if (error) {
-        console.error("Error fetching fantasy rules:", error);
-        return [];
-      }
-      return data || [];
-    } catch (e) {
-      console.error("Exception in getFantasyRules:", e);
-      return [];
-    }
+    const { data, error } = await supabase.from('fantasy_rules').select('*').order('type', { ascending: false });
+    if (error) return [];
+    return data;
   },
 
   async upsertFantasyRule(rule: Partial<FantasyRule>) {
@@ -239,17 +230,9 @@ export const dbService = {
   },
 
   async getSpecialCards(): Promise<SpecialCard[]> {
-    try {
-      const { data, error } = await supabase.from('special_cards').select('*').order('name');
-      if (error) {
-        console.error("Error fetching special cards:", error);
-        return [];
-      }
-      return data || [];
-    } catch (e) {
-      console.error("Exception in getSpecialCards:", e);
-      return [];
-    }
+    const { data, error } = await supabase.from('special_cards').select('*').order('name');
+    if (error) return [];
+    return data;
   },
 
   async upsertSpecialCard(card: Partial<SpecialCard>) {
@@ -265,17 +248,9 @@ export const dbService = {
   },
 
   async getTournamentRules(): Promise<TournamentRules | null> {
-    try {
-      const { data, error } = await supabase.from('tournament_rules').select('*').eq('id', 1).maybeSingle();
-      if (error) {
-        console.error("Error fetching tournament rules:", error);
-        return null;
-      }
-      return data;
-    } catch (e) {
-      console.error("Exception in getTournamentRules:", e);
-      return null;
-    }
+    const { data, error } = await supabase.from('tournament_rules').select('*').eq('id', 1).maybeSingle();
+    if (error) return null;
+    return data;
   },
 
   async upsertTournamentRules(rules: Partial<TournamentRules>) {
@@ -284,26 +259,18 @@ export const dbService = {
   },
 
   async getSettings(): Promise<AppSettings | null> {
-    try {
-      const { data, error } = await supabase.from('settings').select('*').eq('id', 1).maybeSingle();
-      if (error) {
-        console.error("Error fetching settings:", error);
-        return null;
-      }
-      if (!data) return null;
-      return {
-        leagueName: data.league_name,
-        isMarketOpen: data.is_market_open,
-        isLineupLocked: data.is_lineup_locked,
-        marketDeadline: data.market_deadline,
-        currentMatchday: data.current_matchday,
-        youtubeLiveUrl: data.youtube_live_url,
-        marqueeText: data.marquee_text
-      };
-    } catch (e) {
-      console.error("Exception in getSettings:", e);
-      return null;
-    }
+    const { data, error } = await supabase.from('settings').select('*').eq('id', 1).maybeSingle();
+    if (error) return null;
+    if (!data) return null;
+    return {
+      leagueName: data.league_name,
+      isMarketOpen: data.is_market_open,
+      isLineupLocked: data.is_lineup_locked,
+      marketDeadline: data.market_deadline,
+      currentMatchday: data.current_matchday,
+      youtubeLiveUrl: data.youtube_live_url,
+      marqueeText: data.marquee_text
+    };
   },
 
   async upsertSettings(settings: AppSettings) {
@@ -321,23 +288,15 @@ export const dbService = {
   },
 
   async getMatchdays(): Promise<Matchday[]> {
-    try {
-      const { data, error } = await supabase.from('matchdays').select('*').order('number', { ascending: true });
-      if (error) {
-        console.error("Error fetching matchdays:", error);
-        return [];
-      }
-      return (data || []).map(m => ({
-        id: m.id,
-        number: m.number,
-        status: m.status,
-        votes: m.votes || {},
-        created_at: m.created_at
-      }));
-    } catch (e) {
-      console.error("Exception in getMatchdays:", e);
-      return [];
-    }
+    const { data, error } = await supabase.from('matchdays').select('*').order('number', { ascending: true });
+    if (error) return [];
+    return data.map(m => ({
+      id: m.id,
+      number: m.number,
+      status: m.status,
+      votes: m.votes || {},
+      created_at: m.created_at
+    }));
   },
 
   async createMatchday(number: number) {

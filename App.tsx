@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { Player, User, Matchday, Sponsor, FantasyRule, SpecialCard, TournamentRules, AppSettings, PlayerMatchStats } from './types';
 import { dbService, supabase } from './services/dbService';
-import { getAISuggestion } from './services/geminiService';
 
 // Import Views
 import { LandingView } from './views/LandingView';
@@ -70,7 +69,6 @@ const App: React.FC = () => {
   const pwaGuideRef = useRef<HTMLElement>(null);
   const rulesSectionRef = useRef<HTMLElement>(null);
   const cardsSectionRef = useRef<HTMLElement>(null);
-  const [aiTip, setAiTip] = useState<string>('Caricamento scout...');
 
   const [ytInput, setYtInput] = useState('');
   const [marqueeInput, setMarqueeInput] = useState('');
@@ -83,24 +81,53 @@ const App: React.FC = () => {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  const [showSlowLoadingMessage, setShowSlowLoadingMessage] = useState(false);
+
   const refreshData = async (showSpinner = true) => {
-    if (showSpinner) setLoading(true);
-    console.log("Starting data refresh...");
+    if (showSpinner) {
+      setLoading(true);
+      setShowSlowLoadingMessage(false);
+    }
     
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Data refresh timed out after 10 seconds")), 10000)
-    );
+    // Fail-safe: force loading to false after 30 seconds
+    const forceLoadTimeout = setTimeout(() => {
+      console.warn("Force clearing loading state after 30s fail-safe");
+      setLoading(false);
+      setShowSlowLoadingMessage(false);
+    }, 30000);
+
+    const slowLoadingTimeout = setTimeout(() => setShowSlowLoadingMessage(true), 10000);
 
     try {
+      const startTime = Date.now();
+      console.log(`[${startTime}] 🔄 Avvio refresh dati...`);
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Data refresh timed out after 20 seconds")), 20000)
+      );
+
+      const fetchWithLog = async (name: string, promise: Promise<any>) => {
+        console.log(`[${Date.now()}] ⏳ Richiesta avviata: ${name}`);
+        try {
+          const res = await promise;
+          console.log(`[${Date.now()}] ✅ Richiesta completata: ${name}`);
+          return res;
+        } catch (e) {
+          console.error(`[${Date.now()}] ❌ Errore in ${name}:`, e);
+          return null;
+        }
+      };
+
       const promises = [
-        { name: 'players', promise: dbService.getPlayers() },
-        { name: 'settings', promise: dbService.getSettings() },
-        { name: 'profiles', promise: dbService.getAllProfiles() },
-        { name: 'matchdays', promise: dbService.getMatchdays() },
-        { name: 'sponsors', promise: dbService.getSponsors() },
-        { name: 'rules', promise: dbService.getFantasyRules() },
-        { name: 'cards', promise: dbService.getSpecialCards() },
-        { name: 'tournament', promise: dbService.getTournamentRules() }
+        { name: 'players', promise: fetchWithLog('players', dbService.getPlayers()) },
+        { name: 'settings', promise: fetchWithLog('settings', dbService.getSettings()) },
+        { name: 'profiles', promise: fetchWithLog('profiles', dbService.getAllProfiles()) },
+        { name: 'matchdays', promise: fetchWithLog('matchdays', dbService.getMatchdays()) },
+        { name: 'sponsors', promise: fetchWithLog('sponsors', dbService.getSponsors()) },
+        { name: 'rules', promise: fetchWithLog('rules', dbService.getFantasyRules()) },
+        { name: 'cards', promise: fetchWithLog('cards', dbService.getSpecialCards()) },
+        { name: 'tournament', promise: fetchWithLog('tournament', dbService.getTournamentRules()) },
+        { name: 'auth', promise: fetchWithLog('auth', supabase.auth.getSession()) }
       ];
 
       const results = await Promise.race([
@@ -109,8 +136,10 @@ const App: React.FC = () => {
       ]) as any;
 
       if (Array.isArray(results)) {
-        results.forEach((result, index) => {
-          const name = promises[index].name;
+        for (let i = 0; i < promises.length; i++) {
+          const name = promises[i].name;
+          const result = results[i];
+          
           if (result.status === 'fulfilled') {
             const val = result.value;
             if (name === 'players') setPlayers(val || []);
@@ -128,13 +157,19 @@ const App: React.FC = () => {
               setTournamentRules(val || null);
               if (val) setTourneyHtml(val.html_content || '');
             }
-          } else {
-            console.error(`Failed to load ${name}:`, result.reason);
+            if (name === 'auth' && val?.data?.session?.user) {
+              const profile = await dbService.getProfile(val.data.session.user.id);
+              if (profile) setCurrentUser(profile);
+            }
           }
-        });
+        }
       }
+    } catch (err: any) {
+      console.error(`[${Date.now()}] 🚨 Refresh error:`, err.message || err);
+    } finally {
+      clearTimeout(slowLoadingTimeout);
+      clearTimeout(forceLoadTimeout);
 
-      // Default settings if failed
       if (!settings) {
         setSettings({
           leagueName: 'Stork League',
@@ -146,16 +181,9 @@ const App: React.FC = () => {
         });
       }
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const profile = await dbService.getProfile(session.user.id);
-        if (profile) setCurrentUser(profile);
-      }
-      console.log("Data refresh process finished.");
-    } catch (err: any) {
-      console.error("Refresh error:", err.message || err);
-    } finally {
+      console.log(`[${Date.now()}] ✨ Processo di refresh terminato.`);
       setLoading(false);
+      setShowSlowLoadingMessage(false);
     }
   };
 
@@ -175,12 +203,6 @@ const App: React.FC = () => {
       subscription.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    if (currentUser && activeTab === 'home') {
-      getAISuggestion().then(tip => setAiTip(tip));
-    }
-  }, [currentUser, activeTab]);
 
   const handleInstallAction = async () => {
     if (deferredPrompt) {
@@ -308,9 +330,20 @@ const App: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[#1a0702] flex flex-col items-center justify-center p-8">
+    <div className="min-h-screen bg-[#1a0702] flex flex-col items-center justify-center p-8 text-center">
       <Loader2 className="animate-spin text-amber-500 mb-4" size={48} />
       <p className="font-black uppercase text-[10px] tracking-widest italic text-amber-500/50">Lega in Caricamento...</p>
+      {showSlowLoadingMessage && (
+        <div className="mt-6 animate-fade-in">
+          <p className="text-amber-500/30 text-[9px] uppercase font-bold max-w-xs">La connessione sembra lenta, stiamo recuperando i dati dal server...</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[8px] font-black text-amber-500/50 uppercase tracking-widest hover:bg-white/10 transition-all"
+          >
+            Ricarica Pagina
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -369,7 +402,7 @@ const App: React.FC = () => {
             settings={settings} players={players} allUsers={allUsers}
             matchdays={matchdays} sponsors={sponsors} fantasyRules={fantasyRules}
             specialCards={specialCards} tournamentRules={tournamentRules}
-            handleLogout={handleLogout} ytEmbedUrl={ytEmbedUrl} aiTip={aiTip}
+            handleLogout={handleLogout} ytEmbedUrl={ytEmbedUrl}
             currentStarters={currentStarters} latestCalculatedMatchday={latestCalculatedMatchday}
             refreshData={refreshData} showNotification={showNotification}
             setCurrentUser={setCurrentUser}

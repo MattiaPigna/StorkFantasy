@@ -7,13 +7,32 @@ import App from './App';
 if (typeof window !== 'undefined') {
   (window as any).process = (window as any).process || { env: {} };
   
-  // Registrazione Service Worker per PWA
+  // Registrazione Service Worker per PWA con gestione aggiornamenti forzata
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').then(registration => {
         console.log('SW registered: ', registration);
+        
+        // Se c'è un aggiornamento in attesa, forza l'attivazione
+        registration.onupdatefound = () => {
+          const installingWorker = registration.installing;
+          if (installingWorker) {
+            installingWorker.onstatechange = () => {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('Nuovo contenuto disponibile, ricarico...');
+                window.location.reload();
+              }
+            };
+          }
+        };
       }).catch(registrationError => {
-        console.log('SW registration failed: ', registrationError);
+        console.error('SW registration failed: ', registrationError);
+        // Se il SW fallisce pesantemente, proviamo a pulire tutto
+        if (registrationError.name === 'SecurityError' || registrationError.message.includes('MIME')) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for(let reg of registrations) reg.unregister();
+          });
+        }
       });
     });
   }

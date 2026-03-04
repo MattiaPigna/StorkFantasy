@@ -21,7 +21,6 @@ interface DashboardViewProps {
   tournamentRules: TournamentRules | null;
   handleLogout: () => void;
   ytEmbedUrl: string | null;
-  aiTip: string;
   currentStarters: Player[];
   latestCalculatedMatchday: Matchday | undefined;
   refreshData: () => void;
@@ -32,7 +31,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   currentUser, activeTab, setActiveTab, settings, players, allUsers, matchdays,
   sponsors, fantasyRules, specialCards, tournamentRules, handleLogout,
-  ytEmbedUrl, aiTip, currentStarters, latestCalculatedMatchday, refreshData,
+  ytEmbedUrl, currentStarters, latestCalculatedMatchday, refreshData,
   showNotification, setCurrentUser
 }) => {
   
@@ -110,10 +109,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-white p-5 rounded-3xl shadow-lg border border-orange-50">
-                      <h3 className="text-[10px] font-black uppercase mb-3 italic flex items-center gap-2 text-orange-950"><Sparkles className="text-amber-500" size={14} fill="currentColor" /> AI Scout Tip</h3>
-                      <p className="text-[11px] font-bold text-orange-900 italic leading-relaxed">"{aiTip}"</p>
-                    </div>
                     <div className="bg-orange-950 p-5 rounded-3xl text-white shadow-xl flex flex-col justify-center items-center text-center">
                       <ZapIcon className={`mb-2 text-amber-500 ${currentUser.team.isLineupConfirmed ? 'animate-pulse' : 'opacity-20'}`} size={28} />
                       <h3 className="text-xs font-black uppercase text-amber-500 mb-1 italic">Gara {settings?.currentMatchday || 1}</h3>
@@ -158,7 +153,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 const newIds = currentUser.team.currentLineupIds.filter(id => id !== p.id);
                 const newTeam = { ...currentUser.team, currentLineupIds: newIds, isLineupConfirmed: false };
                 setCurrentUser({...currentUser, team: newTeam}); await dbService.updateProfile(currentUser.id, newTeam);
-              }} isLocked={currentUser.team.isLineupConfirmed || settings?.isLineupLocked} votes={latestCalculatedMatchday?.votes} />
+              }} isLocked={currentUser.team.isLineupConfirmed || !!settings?.isLineupLocked} votes={latestCalculatedMatchday?.votes} />
             </div>
           )}
 

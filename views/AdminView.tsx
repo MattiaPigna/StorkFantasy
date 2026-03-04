@@ -29,10 +29,10 @@ interface AdminViewProps {
   setTourneyHtml: (val: string) => void;
   tourneyPdfFile: File | null;
   setTourneyPdfFile: (f: File | null) => void;
-  tourneyInputRef: React.RefObject<HTMLInputElement>;
+  tourneyInputRef: React.RefObject<HTMLInputElement | null>;
   sponsorLogoFile: File | null;
   setSponsorLogoFile: (f: File | null) => void;
-  sponsorInputRef: React.RefObject<HTMLInputElement>;
+  sponsorInputRef: React.RefObject<HTMLInputElement | null>;
   newSponsor: Partial<Sponsor>;
   setNewSponsor: (s: any) => void;
   newPlayer: Partial<Player>;
@@ -43,7 +43,7 @@ interface AdminViewProps {
   setNewCard: (c: any) => void;
   cardImageFile: File | null;
   setCardImageFile: (f: File | null) => void;
-  cardInputRef: React.RefObject<HTMLInputElement>;
+  cardInputRef: React.RefObject<HTMLInputElement | null>;
   actionLoading: boolean;
   refreshData: () => void;
   handleSaveVotes: (calculated: boolean) => void;

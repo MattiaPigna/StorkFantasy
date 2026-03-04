@@ -22,10 +22,10 @@ interface LandingViewProps {
   handleInstallAction: () => void;
   scrollToLogin: () => void;
   setIsAdminPath: (path: boolean) => void;
-  loginSectionRef: React.RefObject<HTMLElement>;
-  pwaGuideRef: React.RefObject<HTMLElement>;
-  rulesSectionRef: React.RefObject<HTMLElement>;
-  cardsSectionRef: React.RefObject<HTMLElement>;
+  loginSectionRef: React.RefObject<HTMLElement | null>;
+  pwaGuideRef: React.RefObject<HTMLElement | null>;
+  rulesSectionRef: React.RefObject<HTMLElement | null>;
+  cardsSectionRef: React.RefObject<HTMLElement | null>;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({
