@@ -40,6 +40,20 @@
         .concrete-texture {
             background-image: url("https://www.transparenttextures.com/patterns/asfalt-dark.png");
         }
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          display: inline-block;
+          animation: marquee 25s linear infinite;
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .pt-safe {
+            padding-top: env(safe-area-inset-top);
+        }
     </style>
 <script type="importmap">
 {
